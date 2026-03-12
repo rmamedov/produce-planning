@@ -34,10 +34,14 @@ export function verifySessionToken(token: string) {
 
 export async function setSessionCookie(email: string) {
   const cookieStore = await cookies();
+  const secureCookies =
+    process.env.AUTH_SECURE_COOKIES !== undefined
+      ? process.env.AUTH_SECURE_COOKIES === "true"
+      : process.env.NODE_ENV === "production";
   cookieStore.set(AUTH_COOKIE_NAME, createSessionToken(email), {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: secureCookies,
     path: "/",
     maxAge: 60 * 60 * 12
   });
