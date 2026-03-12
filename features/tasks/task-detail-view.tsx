@@ -8,13 +8,14 @@ import { buttonVariants } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { TaskDetailContent } from "@/features/tasks/task-detail-content";
 import { useApiQuery } from "@/hooks/use-api";
+import { useTaskRealtime } from "@/hooks/use-task-realtime";
 import { cn } from "@/lib/utils";
 import type { TaskDto } from "@/types";
 
 export function TaskDetailView({ taskId }: { taskId: string }) {
-  const task = useApiQuery<TaskDto>(["task", taskId], `/api/tasks/${taskId}`, {
-    refetchInterval: 30_000
-  });
+  const task = useApiQuery<TaskDto>(["task", taskId], `/api/tasks/${taskId}`);
+
+  useTaskRealtime(taskId);
 
   if (task.isLoading) {
     return <LoadingState label="Завантаження деталей задачі..." />;

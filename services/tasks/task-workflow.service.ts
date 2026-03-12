@@ -4,6 +4,7 @@ import { formatTitle } from "@/lib/utils";
 import { planningRepository } from "@/repositories/planning.repository";
 import { taskRepository } from "@/repositories/task.repository";
 import { taskGenerationService } from "@/services/task-generation/task-generation.service";
+import { taskRealtimeService } from "@/services/tasks/task-realtime.service";
 
 function getTimeliness(expectedReadyAt: Date) {
   return expectedReadyAt.getTime() <= Date.now() ? "OVERDUE" : "ON_TIME";
@@ -20,7 +21,7 @@ export const taskWorkflowService = {
       throw new Error("Only new tasks can be started");
     }
 
-    return planningRepository.transaction(async (db) => {
+    const updatedTask = await planningRepository.transaction(async (db) => {
       return db.task.update({
         where: { id },
         data: {
@@ -29,6 +30,15 @@ export const taskWorkflowService = {
         }
       });
     });
+
+    taskRealtimeService.publishTaskUpdate({
+      reason: "started",
+      branchId: updatedTask.branchId,
+      productId: updatedTask.productId,
+      taskId: updatedTask.id
+    });
+
+    return updatedTask;
   },
 
   async completeTask(id: string) {
@@ -78,7 +88,16 @@ export const taskWorkflowService = {
       return completed;
     });
 
-    await taskGenerationService.generateForBranchProduct(task.branchId, task.productId);
+    await taskGenerationService.generateForBranchProduct(task.branchId, task.productId, {
+      notify: false
+    });
+
+    taskRealtimeService.publishTaskUpdate({
+      reason: "completed",
+      branchId: completedTask.branchId,
+      productId: completedTask.productId,
+      taskId: completedTask.id
+    });
 
     return completedTask;
   },
@@ -93,7 +112,7 @@ export const taskWorkflowService = {
       throw new Error("Only new or in-progress tasks can be cancelled");
     }
 
-    return planningRepository.transaction(async (db) =>
+    const cancelledTask = await planningRepository.transaction(async (db) =>
       db.task.update({
         where: { id },
         data: {
@@ -102,6 +121,15 @@ export const taskWorkflowService = {
         }
       })
     );
+
+    taskRealtimeService.publishTaskUpdate({
+      reason: "cancelled",
+      branchId: cancelledTask.branchId,
+      productId: cancelledTask.productId,
+      taskId: cancelledTask.id
+    });
+
+    return cancelledTask;
   },
 
   async upsertManualTask(input: {
@@ -117,7 +145,7 @@ export const taskWorkflowService = {
       throw new Error("Product is not configured in the selected branch assortment");
     }
 
-    return planningRepository.transaction(async (db) => {
+    const task = await planningRepository.transaction(async (db) => {
       await planningRepository.lockAssortmentItem(db, assortmentItemId);
 
       const assortmentItem = await db.assortmentItem.findUnique({
@@ -177,5 +205,14 @@ export const taskWorkflowService = {
         }
       });
     });
+
+    taskRealtimeService.publishTaskUpdate({
+      reason: "manual-upsert",
+      branchId: task.branchId,
+      productId: task.productId,
+      taskId: task.id
+    });
+
+    return task;
   }
 };

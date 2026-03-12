@@ -71,3 +71,20 @@ export type Option = {
 export type TaskFormStatus = TaskStatus;
 export type TaskFormPriority = TaskPriority;
 export type TaskFormTimeliness = TimelinessStatus;
+
+export type TaskRealtimeReason =
+  | "generated"
+  | "bulk-generated"
+  | "started"
+  | "completed"
+  | "cancelled"
+  | "manual-upsert";
+
+export type TaskRealtimeEvent = {
+  type: "tasks-updated";
+  reason: TaskRealtimeReason;
+  timestamp: string;
+  branchId?: string;
+  productId?: string;
+  taskId?: string;
+};

@@ -4,6 +4,7 @@ import { formatTitle } from "@/lib/utils";
 import { planningRepository } from "@/repositories/planning.repository";
 import { settingsRepository } from "@/repositories/settings.repository";
 import { evaluateTaskGeneration } from "@/services/task-generation/algorithm";
+import { taskRealtimeService } from "@/services/tasks/task-realtime.service";
 
 type GenerationResult =
   | {
@@ -33,6 +34,10 @@ async function runWithRetry<T>(callback: () => Promise<T>, attempts = 3): Promis
   }
 
   throw lastError;
+}
+
+function hasTaskGenerationChanges(result: GenerationResult | null) {
+  return Boolean(result && ["created", "updated", "cancelled"].includes(result.status));
 }
 
 export const taskGenerationService = {
@@ -147,21 +152,44 @@ export const taskGenerationService = {
     });
   },
 
-  async generateForBranchProduct(branchId: string, productId: string) {
+  async generateForBranchProduct(
+    branchId: string,
+    productId: string,
+    options?: {
+      notify?: boolean;
+    }
+  ) {
     const assortmentItemId = await planningRepository.findAssortmentItemId(branchId, productId);
     if (!assortmentItemId) {
       return null;
     }
 
-    return this.generateForAssortmentItem(assortmentItemId);
+    const result = await this.generateForAssortmentItem(assortmentItemId);
+
+    if (options?.notify !== false && hasTaskGenerationChanges(result)) {
+      taskRealtimeService.publishTaskUpdate({
+        reason: "generated",
+        branchId,
+        productId,
+        taskId: result.taskId
+      });
+    }
+
+    return result;
   },
 
-  async generateAll() {
+  async generateAll(options?: { notify?: boolean }) {
     const targets = await planningRepository.listPlanningTargets();
     const results: GenerationResult[] = [];
 
     for (const target of targets) {
       results.push(await this.generateForAssortmentItem(target.id));
+    }
+
+    if (options?.notify !== false && results.some((result) => hasTaskGenerationChanges(result))) {
+      taskRealtimeService.publishTaskUpdate({
+        reason: "bulk-generated"
+      });
     }
 
     return results;

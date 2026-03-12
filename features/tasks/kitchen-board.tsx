@@ -10,15 +10,16 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { Select } from "@/components/ui/select";
 import { TaskCard } from "@/components/tablet/task-card";
 import { useApiQuery } from "@/hooks/use-api";
+import { useTaskRealtime } from "@/hooks/use-task-realtime";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { TaskDto } from "@/types";
 
 export function KitchenBoard() {
   const [branchFilter, setBranchFilter] = useState("all");
-  const tasks = useApiQuery<TaskDto[]>(["tasks", "kitchen"], "/api/tasks?view=kitchen", {
-    refetchInterval: 30_000
-  });
+  const tasks = useApiQuery<TaskDto[]>(["tasks", "kitchen"], "/api/tasks?view=kitchen");
+
+  useTaskRealtime();
 
   const branchOptions = Array.from(
     new Map((tasks.data ?? []).map((task) => [task.branchId, task.branch])).values()
