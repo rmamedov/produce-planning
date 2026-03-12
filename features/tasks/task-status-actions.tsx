@@ -71,9 +71,9 @@ export function TaskStatusActions({
   const primaryAction =
     task.status === TaskStatus.NEW
       ? {
-          label: "Почати виконання",
+          label: "Почати приготування",
           icon: Play,
-          variant: "success" as const,
+          variant: "outline" as const,
           onClick: () => startMutation.mutate()
         }
       : {
@@ -86,7 +86,7 @@ export function TaskStatusActions({
   return (
     <div ref={menuRef} className="relative flex items-stretch gap-2">
       <Button
-        className="min-w-0 flex-1"
+        className={task.status === TaskStatus.NEW ? "min-w-0 flex-1 border-success text-success hover:bg-success/10 hover:text-success" : "min-w-0 flex-1"}
         size={size}
         variant={primaryAction.variant}
         disabled={isPending}

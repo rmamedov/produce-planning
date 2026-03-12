@@ -95,7 +95,7 @@ Supported workflow:
 
 UI buttons follow the allowed transitions only:
 
-- `NEW` -> `Почати виконання`
+- `NEW` -> `Почати приготування`
 - `IN_PROGRESS` -> `Готово`, `Неможливо виготовити`
 - `DONE` and `CANCELLED` -> no action buttons
 

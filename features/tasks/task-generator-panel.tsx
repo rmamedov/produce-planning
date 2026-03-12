@@ -10,9 +10,15 @@ import { useApiMutation } from "@/hooks/use-api";
 import { apiClient } from "@/hooks/use-api";
 
 type GenerationResponse = Array<{
-  status: string;
-  taskId?: string | null;
-  assortmentItemId: string;
+  branchId: string;
+  branchName: string;
+  productId: string;
+  productName: string;
+  taskId: string;
+  title: string;
+  taskStatus: string;
+  priority: string;
+  operation: string;
 }>;
 
 export function TaskGeneratorPanel() {
@@ -30,15 +36,15 @@ export function TaskGeneratorPanel() {
       <PageHeader
         eyebrow="Task generation"
         title="Генерація задач"
-        description="Запустіть алгоритм вручну. У production цей ендпоінт має викликатися cron-ом кожні 15 хвилин."
+        description="Ручний запуск із адмінки створює demo-набір: 5-8 випадкових задач на кожну філію з різними пріоритетами. Автоматичний cron і далі використовує основний алгоритм."
       />
 
       <Card>
         <CardHeader>
           <CardTitle>Manual run</CardTitle>
           <CardDescription>
-            Алгоритм використовує транзакції, row locking і partial unique index для branchId + productId + active
-            status.
+            Для демо-режиму генератор створює нові задачі по кожній філії та не порушує правило одного активного
+            завдання на товар.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -51,11 +57,18 @@ export function TaskGeneratorPanel() {
             <div className="grid gap-3">
               {mutation.data.map((result) => (
                 <div
-                  key={`${result.assortmentItemId}-${result.taskId ?? "none"}`}
-                  className="flex items-center justify-between rounded-2xl border border-border/70 bg-muted/30 px-4 py-3"
+                  key={result.taskId}
+                  className="grid gap-2 rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 md:grid-cols-[1.4fr_1fr_auto_auto]"
                 >
-                  <span className="text-sm text-muted-foreground">Assortment item: {result.assortmentItemId}</span>
-                  <Badge>{result.status}</Badge>
+                  <div>
+                    <p className="text-sm font-semibold">{result.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {result.branchName} • {result.productName}
+                    </p>
+                  </div>
+                  <span className="text-sm text-muted-foreground">{result.operation}</span>
+                  <Badge variant="outline">{result.taskStatus}</Badge>
+                  <Badge>{result.priority}</Badge>
                 </div>
               ))}
             </div>
