@@ -43,12 +43,13 @@ export async function createSessionToken(email: string) {
 }
 
 export async function verifySessionToken(token: string) {
-  const parts = token.split(".");
-  if (parts.length !== 2) {
+  const separatorIndex = token.lastIndexOf(".");
+  if (separatorIndex <= 0 || separatorIndex === token.length - 1) {
     return false;
   }
 
-  const [payload, digest] = parts;
+  const payload = token.slice(0, separatorIndex);
+  const digest = token.slice(separatorIndex + 1);
   const expectedDigest = await sign(payload);
   return constantTimeEqual(digest, expectedDigest);
 }
