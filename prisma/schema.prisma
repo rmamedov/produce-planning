@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TaskStatus {
+  NEW
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum TimelinessStatus {
+  ON_TIME
+  OVERDUE
+}
+
+enum TaskPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model Branch {
+  id          String      @id @default(cuid())
+  name        String
+  address     String
+  assortment  Assortment?
+  forecasts   Forecast[]
+  tasks       Task[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Assortment {
+  id        String           @id @default(cuid())
+  branchId  String           @unique
+  branch    Branch           @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  items     AssortmentItem[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+model AssortmentItem {
+  id                String      @id @default(cuid())
+  assortmentId      String
+  productId         String
+  currentStock      Int         @default(0)
+  hourlyTargetStock Int         @default(0)
+  assortment        Assortment  @relation(fields: [assortmentId], references: [id], onDelete: Cascade)
+  product           Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@unique([assortmentId, productId])
+  @@index([productId])
+}
+
+model Product {
+  id                  String            @id @default(cuid())
+  name                String
+  photoUrl            String?
+  unitWeight          Int
+  technologicalCardId String?
+  technologicalCard   TechnologicalCard? @relation(fields: [technologicalCardId], references: [id], onDelete: SetNull)
+  assortmentItems     AssortmentItem[]
+  forecasts           Forecast[]
+  tasks               Task[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+}
+
+model TechnologicalCard {
+  id                         String              @id @default(cuid())
+  name                       String
+  typicalCookingTimeMinutes  Int
+  ingredients                TechCardIngredient[]
+  steps                      TechCardStep[]
+  requiredEquipment          TechCardEquipment[]
+  products                   Product[]
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime            @updatedAt
+}
+
+model TechCardIngredient {
+  id                  String            @id @default(cuid())
+  technologicalCardId String
+  ingredientName      String
+  quantity            Float
+  unit                String
+  technologicalCard   TechnologicalCard @relation(fields: [technologicalCardId], references: [id], onDelete: Cascade)
+
+  @@index([technologicalCardId])
+}
+
+model TechCardStep {
+  id                  String            @id @default(cuid())
+  technologicalCardId String
+  stepNumber          Int
+  description         String
+  technologicalCard   TechnologicalCard @relation(fields: [technologicalCardId], references: [id], onDelete: Cascade)
+
+  @@index([technologicalCardId])
+}
+
+model TechCardEquipment {
+  id                  String            @id @default(cuid())
+  technologicalCardId String
+  label               String
+  technologicalCard   TechnologicalCard @relation(fields: [technologicalCardId], references: [id], onDelete: Cascade)
+
+  @@index([technologicalCardId])
+}
+
+model Forecast {
+  id                 String   @id @default(cuid())
+  branchId           String
+  productId          String
+  hour               DateTime
+  forecastedSalesQty Int
+  branch             Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([branchId, productId, hour])
+  @@index([branchId, hour])
+}
+
+model Task {
+  id                   String           @id @default(cuid())
+  branchId             String
+  productId            String
+  quantity             Int
+  title                String
+  status               TaskStatus
+  timelinessStatus     TimelinessStatus @default(ON_TIME)
+  priority             TaskPriority
+  allocatedTimeMinutes Int
+  expectedReadyAt      DateTime
+  priorityReason       String
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  startedAt            DateTime?
+  completedAt          DateTime?
+  manual               Boolean          @default(false)
+  comment              String?
+  branch               Branch           @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product              Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([branchId, status])
+  @@index([productId, status])
+  @@index([expectedReadyAt])
+}
+
+model Settings {
+  id                        String   @id @default(cuid())
+  planningHorizonHours      Int      @default(4)
+  generationIntervalMinutes Int      @default(15)
+  kitchenBoardRefreshSec    Int      @default(30)
+  companyName               String   @default("Kitchen Production Planner")
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}

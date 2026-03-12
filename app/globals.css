@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 34 71% 97%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 160 61% 28%;
+  --primary-foreground: 45 100% 97%;
+  --secondary: 36 56% 91%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 36 33% 92%;
+  --muted-foreground: 215 16% 40%;
+  --accent: 18 87% 54%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 36 26% 84%;
+  --input: 36 26% 84%;
+  --ring: 160 61% 28%;
+  --success: 142 71% 45%;
+  --warning: 38 92% 50%;
+  --radius: 1rem;
+  --font-sans: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
+}
+
+* {
+  @apply border-border;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply min-h-screen bg-background text-foreground antialiased;
+  background-image:
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 32%),
+    radial-gradient(circle at top right, rgba(249, 115, 22, 0.12), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(250, 245, 238, 0.96));
+}
+
+a {
+  @apply text-inherit no-underline;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.page-shell {
+  @apply mx-auto w-full max-w-[1520px] px-4 py-6 md:px-6 lg:px-8;
+}
+
+.panel-surface {
+  @apply rounded-3xl border border-white/50 bg-white/80 shadow-soft backdrop-blur;
+}
+
+.kitchen-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
+}
+
+.app-grid {
+  background-size: 56px 56px;
+  background-image: theme("backgroundImage.page-grid");
+}
