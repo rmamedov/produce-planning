@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, LayoutDashboard, Tablet } from "lucide-react";
+import { BookOpen, ChevronRight, LayoutDashboard, Tablet } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,6 +29,10 @@ export default function HomePage() {
             <Link href="/kitchen" className={cn(buttonVariants({ size: "lg", variant: "outline" }))}>
               Kitchen tablet
               <ChevronRight className="ml-2 h-4 w-4" />
+            </Link>
+            <Link href="/guide" className={cn(buttonVariants({ size: "lg", variant: "outline" }))}>
+              Інструкція
+              <BookOpen className="ml-2 h-4 w-4" />
             </Link>
           </div>
         </div>

@@ -4,13 +4,21 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { TaskStatusActions } from "@/features/tasks/task-status-actions";
-import { formatDateTime, getPriorityLabel, getStatusLabel, getTimelinessLabel } from "@/lib/format";
+import {
+  formatDateTime,
+  getPriorityBadgeClassName,
+  getPriorityLabel,
+  getPrioritySurfaceClassName,
+  getStatusLabel,
+  getTimelinessLabel
+} from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { TaskDto } from "@/types";
 
 export function TaskDetailContent({ task }: { task: TaskDto }) {
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden">
+      <Card className={cn("overflow-hidden", getPrioritySurfaceClassName(task.priority))}>
         {task.product.photoUrl ? (
           <div className="relative h-64 w-full overflow-hidden">
             <Image
@@ -24,7 +32,7 @@ export function TaskDetailContent({ task }: { task: TaskDto }) {
         ) : null}
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge>{getPriorityLabel(task.priority)}</Badge>
+            <Badge className={getPriorityBadgeClassName(task.priority)}>{getPriorityLabel(task.priority)}</Badge>
             <Badge variant={task.timelinessStatus === "OVERDUE" ? "destructive" : "success"}>
               {getTimelinessLabel(task.timelinessStatus)}
             </Badge>
@@ -101,7 +109,7 @@ export function TaskDetailContent({ task }: { task: TaskDto }) {
 
 function InfoItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-muted/30 px-4 py-3">
+    <div className="rounded-2xl bg-white/70 px-4 py-3">
       <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
       <p className="mt-1 font-medium">{value || "—"}</p>
     </div>

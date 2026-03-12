@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Blocks,
+  BookOpen,
   CalendarClock,
   ChefHat,
   ClipboardList,
@@ -71,9 +72,15 @@ export function AdminSidebar() {
 
       <div className="space-y-3 border-t border-border/70 p-6 text-sm text-muted-foreground">
         <p>Kitchen board: мінімум 3 картки задач на екрані 1340x800.</p>
-        <Link href="/kitchen" className="font-semibold text-primary">
-          Відкрити tablet UI
-        </Link>
+        <div className="flex flex-col gap-2">
+          <Link href="/kitchen" className="font-semibold text-primary">
+            Відкрити tablet UI
+          </Link>
+          <Link href="/guide" className="inline-flex items-center gap-2 font-semibold text-primary">
+            <BookOpen className="h-4 w-4" />
+            Відкрити інструкцію
+          </Link>
+        </div>
       </div>
     </aside>
   );

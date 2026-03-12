@@ -65,7 +65,10 @@ textarea {
 
 .kitchen-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 252px), 252px));
+  grid-auto-rows: 260px;
+  justify-content: start;
+  align-items: start;
 }
 
 .app-grid {

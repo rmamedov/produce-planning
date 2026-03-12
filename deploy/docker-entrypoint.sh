@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-echo "Running Prisma migrations..."
-./node_modules/.bin/prisma migrate deploy
+echo "Synchronizing Prisma schema..."
+./node_modules/.bin/prisma db push
 
 if [ "${SEED_ON_DEPLOY:-false}" = "true" ]; then
   echo "SEED_ON_DEPLOY=true, running seed script..."
@@ -10,4 +10,4 @@ if [ "${SEED_ON_DEPLOY:-false}" = "true" ]; then
 fi
 
 echo "Starting Next.js server..."
-exec node server.js
+exec ./node_modules/.bin/next start -H "${HOSTNAME:-0.0.0.0}" -p "${PORT:-3000}"

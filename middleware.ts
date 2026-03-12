@@ -3,13 +3,13 @@ import { NextResponse } from "next/server";
 
 import { AUTH_COOKIE_NAME, verifySessionToken } from "@/services/auth/session";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   if (!request.nextUrl.pathname.startsWith("/admin") || request.nextUrl.pathname.startsWith("/admin/login")) {
     return NextResponse.next();
   }
 
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
-  const isAuthenticated = token ? verifySessionToken(token) : false;
+  const isAuthenticated = token ? await verifySessionToken(token) : false;
 
   if (!isAuthenticated) {
     const url = new URL("/admin/login", request.url);

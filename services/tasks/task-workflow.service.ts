@@ -89,22 +89,19 @@ export const taskWorkflowService = {
       throw new Error("Task not found");
     }
 
-    if (task.status !== TaskStatus.IN_PROGRESS) {
-      throw new Error("Only tasks in progress can be cancelled");
+    if (![TaskStatus.NEW, TaskStatus.IN_PROGRESS].includes(task.status)) {
+      throw new Error("Only new or in-progress tasks can be cancelled");
     }
 
-    const cancelled = await planningRepository.transaction(async (db) =>
+    return planningRepository.transaction(async (db) =>
       db.task.update({
         where: { id },
         data: {
-          status: TaskStatus.CANCELLED
+          status: TaskStatus.CANCELLED,
+          timelinessStatus: getTimeliness(task.expectedReadyAt)
         }
       })
     );
-
-    await taskGenerationService.generateForBranchProduct(task.branchId, task.productId);
-
-    return cancelled;
   },
 
   async upsertManualTask(input: {

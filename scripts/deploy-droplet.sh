@@ -30,7 +30,8 @@ sshpass -p "$PASSWORD" ssh $SSH_OPTS "$USER@$HOST" "
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     chmod a+r /etc/apt/keyrings/docker.gpg
     . /etc/os-release
-    echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $VERSION_CODENAME stable\" > /etc/apt/sources.list.d/docker.list
+    CODENAME=\${VERSION_CODENAME:-\${UBUNTU_CODENAME:-jammy}}
+    echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$CODENAME stable\" > /etc/apt/sources.list.d/docker.list
     apt-get update
     apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     systemctl enable docker
@@ -55,7 +56,7 @@ sshpass -p "$PASSWORD" ssh $SSH_OPTS "$USER@$HOST" "
   cd '$REMOTE_DIR'
   tar -xzf produce-planning-deploy.tgz
   rm -f produce-planning-deploy.tgz
-  docker compose -f docker-compose.prod.yml up -d --build
+  docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 "
 
 rm -f /tmp/produce-planning-deploy.tgz
