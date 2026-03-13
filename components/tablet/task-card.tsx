@@ -4,7 +4,7 @@ import { Clock3, ListTodo } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { TaskStatusActions } from "@/features/tasks/task-status-actions";
-import { formatDateTime, getPriorityBadgeClassName, getPriorityLabel, getPrioritySurfaceClassName } from "@/lib/format";
+import { computeTimeliness, formatDateTime, getPriorityBadgeClassName, getPriorityLabel, getPrioritySurfaceClassName, getTimelinessLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { TaskDto } from "@/types";
 
@@ -17,7 +17,12 @@ export function TaskCard({ task }: { task: TaskDto }) {
             <p className="line-clamp-2 text-base font-semibold leading-tight">{task.title}</p>
             <p className="text-xs text-muted-foreground">{task.branch.name}</p>
           </div>
-          <Badge className={getPriorityBadgeClassName(task.priority)}>{getPriorityLabel(task.priority)}</Badge>
+          <div className="flex flex-col gap-1 items-end">
+            <Badge className={getPriorityBadgeClassName(task.priority)}>{getPriorityLabel(task.priority)}</Badge>
+            <Badge variant={computeTimeliness(task) === "OVERDUE" ? "destructive" : "success"} className="text-xs">
+              {getTimelinessLabel(computeTimeliness(task))}
+            </Badge>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2 text-sm">

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { TaskStatusActions } from "@/features/tasks/task-status-actions";
 import {
+  computeTimeliness,
   formatDateTime,
   getPriorityBadgeClassName,
   getPriorityLabel,
@@ -33,8 +34,8 @@ export function TaskDetailContent({ task }: { task: TaskDto }) {
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2">
             <Badge className={getPriorityBadgeClassName(task.priority)}>{getPriorityLabel(task.priority)}</Badge>
-            <Badge variant={task.timelinessStatus === "OVERDUE" ? "destructive" : "success"}>
-              {getTimelinessLabel(task.timelinessStatus)}
+            <Badge variant={computeTimeliness(task) === "OVERDUE" ? "destructive" : "success"}>
+              {getTimelinessLabel(computeTimeliness(task))}
             </Badge>
             <Badge variant="outline">{getStatusLabel(task.status)}</Badge>
           </div>

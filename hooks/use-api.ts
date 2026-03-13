@@ -47,16 +47,16 @@ export function useApiQuery<T>(
 }
 
 export function useApiMutation<TData, TVariables = void>(
-  options: UseMutationOptions<TData, Error, TVariables> & {
+  options: UseMutationOptions<TData, Error, TVariables, unknown> & {
     successMessage?: string;
     invalidateKeys?: QueryKey[];
   }
 ) {
   const queryClient = useQueryClient();
 
-  return useMutation<TData, Error, TVariables>({
+  return useMutation<TData, Error, TVariables, unknown>({
     ...options,
-    onSuccess: async (data, variables, context) => {
+    onSuccess: async (data, variables, onMutateResult, context) => {
       if (options.invalidateKeys?.length) {
         await Promise.all(
           options.invalidateKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey }))
@@ -67,11 +67,11 @@ export function useApiMutation<TData, TVariables = void>(
         toast.success(options.successMessage);
       }
 
-      await options.onSuccess?.(data, variables, context);
+      await options.onSuccess?.(data, variables, onMutateResult, context);
     },
-    onError: async (error, variables, context) => {
+    onError: async (error, variables, onMutateResult, context) => {
       toast.error(error.message);
-      await options.onError?.(error, variables, context);
+      await options.onError?.(error, variables, onMutateResult, context);
     }
   });
 }

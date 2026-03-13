@@ -50,7 +50,7 @@ export function ForecastsManagement() {
         ? {
             branchId: selectedForecast.branchId,
             productId: selectedForecast.productId,
-            hour: selectedForecast.hour,
+            hour: typeof selectedForecast.hour === "string" ? selectedForecast.hour : new Date(selectedForecast.hour).toISOString(),
             forecastedSalesQty: selectedForecast.forecastedSalesQty
           }
         : defaultValues

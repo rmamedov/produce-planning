@@ -78,6 +78,17 @@ export function getPrioritySurfaceClassName(priority: TaskPriority) {
   }
 }
 
+export function computeTimeliness(task: { status: string; timelinessStatus: string; expectedReadyAt: string | Date }): TimelinessStatus {
+  // For completed/cancelled tasks, use the stored value (historical fact)
+  if (task.status === TaskStatus.DONE || task.status === TaskStatus.CANCELLED) {
+    return task.timelinessStatus as TimelinessStatus;
+  }
+  // For active tasks, compute dynamically
+  return new Date(task.expectedReadyAt).getTime() <= Date.now()
+    ? TimelinessStatus.OVERDUE
+    : TimelinessStatus.ON_TIME;
+}
+
 export function getTimelinessLabel(status: TimelinessStatus) {
   return status === TimelinessStatus.OVERDUE ? "Прострочено" : "Вчасно";
 }

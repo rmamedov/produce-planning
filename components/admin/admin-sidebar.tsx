@@ -1,8 +1,10 @@
 "use client";
 
+import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChart3,
   Blocks,
   BookOpen,
   CalendarClock,
@@ -27,6 +29,7 @@ const items = [
   { href: "/admin/tech-cards", label: "Технологічні карти", icon: ChefHat },
   { href: "/admin/forecasts", label: "Прогнози", icon: CalendarClock },
   { href: "/admin/tasks", label: "Завдання", icon: ClipboardList },
+  { href: "/admin/analytics", label: "Аналітика", icon: BarChart3 },
   { href: "/admin/manual-tasks", label: "Ручне створення завдання", icon: Wrench },
   { href: "/admin/task-generator", label: "Генерація задач", icon: Sparkles },
   { href: "/admin/settings", label: "Налаштування", icon: Settings }
@@ -56,7 +59,7 @@ export function AdminSidebar() {
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={item.href as Route}
                 className={cn(
                   "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition",
                   isActive ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted"

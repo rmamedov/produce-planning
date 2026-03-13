@@ -62,7 +62,7 @@ export function evaluateTaskGeneration(
 
   const taskQuantity = Math.max(0, Math.ceil(deficit));
 
-  let priority = TaskPriority.LOW;
+  let priority: TaskPriority = TaskPriority.LOW;
   let priorityReason = "Запас покриває щонайменше 2 години прогнозу.";
 
   if (snapshot.currentStock === 0) {

@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -37,7 +38,7 @@ export function LoginForm() {
         body: JSON.stringify(values)
       }),
     onSuccess: async () => {
-      router.replace(redirectTo);
+      router.replace(redirectTo as Route);
       router.refresh();
     }
   });

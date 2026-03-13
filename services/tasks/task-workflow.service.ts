@@ -5,6 +5,7 @@ import { planningRepository } from "@/repositories/planning.repository";
 import { taskRepository } from "@/repositories/task.repository";
 import { taskGenerationService } from "@/services/task-generation/task-generation.service";
 import { taskRealtimeService } from "@/services/tasks/task-realtime.service";
+import { taskStatusLogService } from "@/services/tasks/task-status-log.service";
 
 function getTimeliness(expectedReadyAt: Date) {
   return expectedReadyAt.getTime() <= Date.now() ? "OVERDUE" : "ON_TIME";
@@ -22,13 +23,15 @@ export const taskWorkflowService = {
     }
 
     const updatedTask = await planningRepository.transaction(async (db) => {
-      return db.task.update({
+      const result = await db.task.update({
         where: { id },
         data: {
           status: TaskStatus.IN_PROGRESS,
           startedAt: new Date()
         }
       });
+      await taskStatusLogService.log(id, "NEW", "IN_PROGRESS", db);
+      return result;
     });
 
     taskRealtimeService.publishTaskUpdate({
@@ -60,6 +63,7 @@ export const taskWorkflowService = {
           timelinessStatus: getTimeliness(task.expectedReadyAt)
         }
       });
+      await taskStatusLogService.log(id, "IN_PROGRESS", "DONE", db);
 
       const assortment = await db.assortment.findUnique({
         where: {
@@ -108,19 +112,21 @@ export const taskWorkflowService = {
       throw new Error("Task not found");
     }
 
-    if (![TaskStatus.NEW, TaskStatus.IN_PROGRESS].includes(task.status)) {
+    if (!([TaskStatus.NEW, TaskStatus.IN_PROGRESS] as TaskStatus[]).includes(task.status)) {
       throw new Error("Only new or in-progress tasks can be cancelled");
     }
 
-    const cancelledTask = await planningRepository.transaction(async (db) =>
-      db.task.update({
+    const cancelledTask = await planningRepository.transaction(async (db) => {
+      const result = await db.task.update({
         where: { id },
         data: {
           status: TaskStatus.CANCELLED,
           timelinessStatus: getTimeliness(task.expectedReadyAt)
         }
-      })
-    );
+      });
+      await taskStatusLogService.log(id, task.status, "CANCELLED", db);
+      return result;
+    });
 
     taskRealtimeService.publishTaskUpdate({
       reason: "cancelled",
@@ -190,20 +196,24 @@ export const taskWorkflowService = {
       } as const;
 
       if (activeTask) {
-        return db.task.update({
+        const updated = await db.task.update({
           where: {
             id: activeTask.id
           },
           data: payload
         });
+        await taskStatusLogService.log(activeTask.id, activeTask.status, activeTask.status, db);
+        return updated;
       }
 
-      return db.task.create({
+      const created = await db.task.create({
         data: {
           ...payload,
           status: TaskStatus.NEW
         }
       });
+      await taskStatusLogService.log(created.id, null, "NEW", db);
+      return created;
     });
 
     taskRealtimeService.publishTaskUpdate({

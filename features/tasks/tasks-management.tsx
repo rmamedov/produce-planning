@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { LoadingState } from "@/components/ui/loading-state";
 import { TaskDetailContent } from "@/features/tasks/task-detail-content";
 import { useApiQuery } from "@/hooks/use-api";
-import { formatDateTime, getPriorityLabel, getStatusLabel } from "@/lib/format";
+import { computeTimeliness, formatDateTime, getPriorityLabel, getStatusLabel, getTimelinessLabel } from "@/lib/format";
 import type { TaskDto } from "@/types";
 
 const columns: ColumnDef<TaskDto>[] = [
@@ -33,6 +33,18 @@ const columns: ColumnDef<TaskDto>[] = [
     accessorKey: "status",
     header: "Статус",
     cell: ({ row }) => <Badge variant="outline">{getStatusLabel(row.original.status)}</Badge>
+  },
+  {
+    accessorKey: "timelinessStatus",
+    header: "Своєчасність",
+    cell: ({ row }) => {
+      const timeliness = computeTimeliness(row.original);
+      return (
+        <Badge variant={timeliness === "OVERDUE" ? "destructive" : "success"}>
+          {getTimelinessLabel(timeliness)}
+        </Badge>
+      );
+    }
   },
   {
     accessorKey: "priority",
