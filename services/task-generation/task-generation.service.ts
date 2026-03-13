@@ -36,7 +36,9 @@ async function runWithRetry<T>(callback: () => Promise<T>, attempts = 3): Promis
   throw lastError;
 }
 
-function hasTaskGenerationChanges(result: GenerationResult | null) {
+function hasTaskGenerationChanges(
+  result: GenerationResult | null
+): result is GenerationResult & { taskId: string } {
   return Boolean(result && ["created", "updated", "cancelled"].includes(result.status));
 }
 

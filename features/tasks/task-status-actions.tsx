@@ -64,7 +64,7 @@ export function TaskStatusActions({
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [isMenuOpen]);
 
-  if (![TaskStatus.NEW, TaskStatus.IN_PROGRESS].includes(task.status)) {
+  if (!([TaskStatus.NEW, TaskStatus.IN_PROGRESS] as TaskStatus[]).includes(task.status)) {
     return null;
   }
 
@@ -99,7 +99,7 @@ export function TaskStatusActions({
         {primaryAction.label}
       </Button>
 
-      <div className="relative shrink-0">
+      <div className="shrink-0">
         <Button
           className={compact ? "w-9 px-0" : "w-11 px-0"}
           size={size}
@@ -111,25 +111,25 @@ export function TaskStatusActions({
         >
           <MoreHorizontal className="h-4 w-4" />
         </Button>
-
-        {isMenuOpen ? (
-          <div className="absolute right-0 top-full z-20 mt-2 w-60 rounded-2xl border border-border bg-white p-2 shadow-lg">
-            <Button
-              className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
-              size="sm"
-              variant="ghost"
-              disabled={isPending}
-              onClick={() => {
-                setIsMenuOpen(false);
-                cancelMutation.mutate();
-              }}
-            >
-              <X className="mr-2 h-4 w-4" />
-              Неможливо виготовити
-            </Button>
-          </div>
-        ) : null}
       </div>
+
+      {isMenuOpen ? (
+        <div className="absolute inset-x-0 top-full z-20 mt-1 rounded-xl border border-border bg-white p-1 shadow-lg">
+          <Button
+            className="h-7 w-full justify-start text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+            size="sm"
+            variant="ghost"
+            disabled={isPending}
+            onClick={() => {
+              setIsMenuOpen(false);
+              cancelMutation.mutate();
+            }}
+          >
+            <X className="mr-1.5 h-3.5 w-3.5" />
+            Неможливо виготовити
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
