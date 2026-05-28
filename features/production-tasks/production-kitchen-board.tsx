@@ -78,11 +78,11 @@ function ProductionTaskCard({ task, onChanged }: { task: ProductionTask; onChang
         </div>
 
         <div className="grid grid-cols-2 gap-2 text-sm">
-          <Metric label="До виробництва" value={`${task.quantity}`} icon={<Package className="h-4 w-4" />} />
-          <Metric label="Покриття" value={`${task.covered_hours} год`} icon={<Clock3 className="h-4 w-4" />} />
+          <Metric label="Виробити" value={`${task.quantity}`} icon={<Package className="h-3.5 w-3.5" />} />
+          <Metric label="Покриття" value={`${task.covered_hours} год`} icon={<Clock3 className="h-3.5 w-3.5" />} />
         </div>
 
-        <p className="line-clamp-2 text-sm text-muted-foreground">{task.reason}</p>
+        <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">{task.reason}</p>
 
         <div className="mt-auto flex flex-col gap-2">
           {task.status === "NEW" ? (
@@ -106,11 +106,11 @@ function ProductionTaskCard({ task, onChanged }: { task: ProductionTask; onChang
 function Metric({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
   return (
     <div className="rounded-2xl bg-white/70 px-3 py-2">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-        {icon}
-        {label}
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide leading-tight text-muted-foreground">
+        <span className="shrink-0">{icon}</span>
+        <span className="truncate">{label}</span>
       </div>
-      <p className="mt-1 font-semibold">{value}</p>
+      <p className="mt-1 text-lg font-bold leading-none">{value}</p>
     </div>
   );
 }
