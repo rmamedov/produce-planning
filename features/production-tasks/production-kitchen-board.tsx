@@ -1,19 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, CheckCircle2, Clock3, Package, PlayCircle, Tablet } from "lucide-react";
 
-import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
-import { LoadingState } from "@/components/ui/loading-state";
-import { Select } from "@/components/ui/select";
 import { apiClient, useApiMutation, useApiQuery } from "@/hooks/use-api";
-import { getPriorityBadgeClassName, getPriorityLabel, getPrioritySurfaceClassName } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import styles from "./production-kitchen-board.module.css";
 
 interface ProductionTask {
   id: string;
@@ -35,14 +25,48 @@ interface ProductionTasksResponse {
   tasks: ProductionTask[];
 }
 
-const STATUS_LABELS: Record<ProductionTask["status"], string> = {
-  NEW: "Нова",
-  IN_PROGRESS: "В роботі",
-  DONE: "Виконана",
-  CANCELLED: "Скасована"
+type PrioKey = "critical" | "high" | "medium";
+
+const PRIORITY_META: Record<ProductionTask["priority"], { key: PrioKey; label: string }> = {
+  CRITICAL: { key: "critical", label: "Critical" },
+  HIGH: { key: "high", label: "High" },
+  MEDIUM: { key: "medium", label: "Medium" },
+  LOW: { key: "medium", label: "Medium" }
 };
 
-function ProductionTaskCard({ task, onChanged }: { task: ProductionTask; onChanged: () => void }) {
+const STORAGE_KEY = "kitchen.selectedBranch";
+
+function ChevronIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M8 5v14l11-7z" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  );
+}
+
+function formatHours(value: number) {
+  return Number.isInteger(value) ? String(value) : String(value);
+}
+
+function TaskCard({ task, onChanged }: { task: ProductionTask; onChanged: () => void }) {
+  const meta = PRIORITY_META[task.priority];
+
   const start = useApiMutation({
     mutationFn: () => apiClient(`/api/production-tasks/${task.id}/start`, { method: "POST" }),
     successMessage: "Задачу взято в роботу",
@@ -56,67 +80,95 @@ function ProductionTaskCard({ task, onChanged }: { task: ProductionTask; onChang
   });
 
   const busy = start.isPending || complete.isPending;
+  const inProgress = task.status === "IN_PROGRESS";
+
+  const noteClass = [styles.note, styles[`note${meta.label}` as keyof typeof styles] as string]
+    .filter(Boolean)
+    .join(" ");
+  const prioClass = [styles.prio, styles[`prio${meta.label}` as keyof typeof styles] as string]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <Card className={cn("h-full w-full overflow-hidden shadow-sm", getPrioritySurfaceClassName(task.priority))}>
-      <CardContent className="flex h-full flex-col gap-4 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <p className="line-clamp-2 text-base font-semibold leading-tight">
-              {task.lager_name ?? `Lager ${task.lager_id}`}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              SKU {task.lager_id} • Філія {task.filial_id} • {task.history_date}
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <Badge className={getPriorityBadgeClassName(task.priority)}>{getPriorityLabel(task.priority)}</Badge>
-            {task.status === "IN_PROGRESS" ? (
-              <Badge variant="warning" className="text-xs">{STATUS_LABELS[task.status]}</Badge>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <Metric label="Виробити" value={`${task.quantity}`} icon={<Package className="h-3.5 w-3.5" />} />
-          <Metric label="Покриття" value={`${task.covered_hours} год`} icon={<Clock3 className="h-3.5 w-3.5" />} />
-        </div>
-
-        <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">{task.reason}</p>
-
-        <div className="mt-auto flex flex-col gap-2">
-          {task.status === "NEW" ? (
-            <Button onClick={() => start.mutate()} disabled={busy} className="w-full">
-              <PlayCircle className="mr-2 h-4 w-4" />
-              Почати
-            </Button>
-          ) : null}
-          {task.status === "IN_PROGRESS" ? (
-            <Button onClick={() => complete.mutate()} disabled={busy} className="w-full">
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Завершити
-            </Button>
-          ) : null}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function Metric({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl bg-white/70 px-3 py-2">
-      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide leading-tight text-muted-foreground">
-        <span className="shrink-0">{icon}</span>
-        <span className="truncate">{label}</span>
+    <article className={styles.card}>
+      <div className={styles.cardHead}>
+        <h2 className={styles.cardTitle}>{task.lager_name ?? `Lager ${task.lager_id}`}</h2>
+        {inProgress ? (
+          <span className={styles.progressTag}>В роботі</span>
+        ) : (
+          <span className={prioClass}>{meta.label}</span>
+        )}
       </div>
-      <p className="mt-1 text-lg font-bold leading-none">{value}</p>
-    </div>
+
+      <p className={styles.cardMeta}>
+        SKU {task.lager_id}
+        <span className={styles.sep}>•</span>
+        Філія {task.filial_id}
+        <span className={styles.sep}>•</span>
+        {task.history_date}
+      </p>
+
+      <div className={styles.metrics}>
+        <div className={styles.metric}>
+          <span className={styles.metricLabel}>Виробити</span>
+          <span className={styles.metricValue}>{task.quantity}</span>
+        </div>
+        <div className={styles.metric}>
+          <span className={styles.metricLabel}>Покриття</span>
+          <span className={styles.metricValue}>
+            {formatHours(task.covered_hours)}
+            <span className={styles.unit}>год</span>
+          </span>
+        </div>
+      </div>
+
+      <p className={noteClass}>{task.reason}</p>
+
+      {inProgress ? (
+        <button
+          type="button"
+          className={`${styles.btnStart} ${styles.btnComplete}`}
+          onClick={() => complete.mutate()}
+          disabled={busy}
+        >
+          <span className={styles.play}>
+            <CheckIcon />
+          </span>
+          Завершити
+        </button>
+      ) : (
+        <button
+          type="button"
+          className={styles.btnStart}
+          onClick={() => start.mutate()}
+          disabled={busy}
+        >
+          <span className={styles.play}>
+            <PlayIcon />
+          </span>
+          Почати
+        </button>
+      )}
+    </article>
   );
 }
 
 export function ProductionKitchenBoard() {
-  const [filialFilter, setFilialFilter] = useState("all");
+  const [selectedBranch, setSelectedBranch] = useState("all");
+
+  // Restore the operator's branch choice for the session.
+  useEffect(() => {
+    const stored = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
+    if (stored) {
+      setSelectedBranch(stored);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STORAGE_KEY, selectedBranch);
+    }
+  }, [selectedBranch]);
 
   const query = useApiQuery<ProductionTasksResponse>(
     ["production-tasks", "kitchen"],
@@ -126,84 +178,124 @@ export function ProductionKitchenBoard() {
 
   const allTasks = query.data?.tasks ?? [];
 
-  // Kitchen board only shows tasks that still need work.
   const activeTasks = useMemo(
     () => allTasks.filter((task) => task.status === "NEW" || task.status === "IN_PROGRESS"),
     [allTasks]
   );
 
-  const filialOptions = useMemo(
+  const branchOptions = useMemo(
     () => Array.from(new Set(activeTasks.map((task) => task.filial_id))).sort((a, b) => a - b),
     [activeTasks]
   );
 
   useEffect(() => {
-    if (filialFilter !== "all" && !filialOptions.some((id) => String(id) === filialFilter)) {
-      setFilialFilter("all");
+    if (selectedBranch !== "all" && !branchOptions.some((id) => String(id) === selectedBranch)) {
+      setSelectedBranch("all");
     }
-  }, [filialFilter, filialOptions]);
+  }, [selectedBranch, branchOptions]);
 
-  const filteredTasks =
-    filialFilter === "all"
+  const tasks =
+    selectedBranch === "all"
       ? activeTasks
-      : activeTasks.filter((task) => String(task.filial_id) === filialFilter);
-
-  if (query.isLoading) {
-    return <LoadingState label="Завантаження kitchen board..." />;
-  }
+      : activeTasks.filter((task) => String(task.filial_id) === selectedBranch);
 
   return (
-    <main className="page-shell min-h-screen space-y-6">
-      <PageHeader
-        eyebrow="Kitchen tablet"
-        title="Виробничі задачі"
-        description="Компактний режим для планшета. Картки показують тільки потрібну інформацію і допустимі кнопки."
-        actions={
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex min-w-[220px] items-center gap-3 rounded-2xl bg-white/80 px-4 py-2 text-sm">
-              <span className="font-semibold text-muted-foreground">Філія</span>
-              <Select
-                className="h-9 min-w-[150px] border-0 bg-transparent px-0 py-0 font-semibold focus-visible:ring-0 focus-visible:ring-offset-0"
-                value={filialFilter}
-                onChange={(event) => setFilialFilter(event.target.value)}
-              >
-                <option value="all">Усі філії</option>
-                {filialOptions.map((id) => (
-                  <option key={id} value={String(id)}>
-                    Філія {id}
-                  </option>
-                ))}
-              </Select>
-            </label>
+    <main className={styles.shell}>
+      <header className={styles.topbar}>
+        <div>
+          <p className={styles.eyebrow}>Kitchen tablet</p>
+          <h1 className={styles.title}>Виробничі задачі</h1>
+          <p className={styles.subtitle}>
+            Компактний режим для планшета. Картки показують тільки потрібну інформацію і допустимі кнопки.
+          </p>
+        </div>
 
-            <div className="flex items-center gap-2 rounded-2xl bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
-              <Tablet className="h-4 w-4" />
-              1340x800 optimized
-            </div>
-
-            <Link href="/guide" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-              <BookOpen className="mr-2 h-4 w-4" />
-              Інструкція
-            </Link>
+        <div className={styles.controls}>
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>Філія</span>
+            <select
+              className={styles.fieldSelect}
+              aria-label="Філія"
+              value={selectedBranch}
+              onChange={(event) => setSelectedBranch(event.target.value)}
+            >
+              <option value="all">Усі філії</option>
+              {branchOptions.map((id) => (
+                <option key={id} value={String(id)}>
+                  Філія {id}
+                </option>
+              ))}
+            </select>
+            <span className={styles.fieldChevron}>
+              <ChevronIcon />
+            </span>
           </div>
-        }
-      />
 
-      {filteredTasks.length ? (
-        <section className="kitchen-grid gap-4">
-          {filteredTasks.map((task) => (
-            <ProductionTaskCard key={task.id} task={task} onChanged={() => query.refetch()} />
+          <span className={styles.statusPill} title="Інтерфейс оптимізовано під роздільну здатність 1340×800">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="6" y="3" width="12" height="18" rx="2.5" />
+              <line x1="11" y1="18" x2="13" y2="18" />
+            </svg>
+            1340×800 optimized
+          </span>
+
+          <a className={styles.ghostBtn} href="/guide">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5V4.5z" />
+              <path d="M4 4.5V21.5A2.5 2.5 0 0 1 6.5 19H20" />
+            </svg>
+            Інструкція
+          </a>
+        </div>
+      </header>
+
+      {query.isLoading ? (
+        <section className={styles.grid} aria-label="Завантаження">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className={styles.skeletonCard}>
+              <div className={styles.shimmer} style={{ height: 20, width: "70%" }} />
+              <div className={styles.shimmer} style={{ height: 14, width: "90%" }} />
+              <div className={styles.shimmer} style={{ height: 56 }} />
+              <div className={styles.shimmer} style={{ height: 42, marginTop: 8 }} />
+              <div className={styles.shimmer} style={{ height: 44, borderRadius: 999 }} />
+            </div>
+          ))}
+        </section>
+      ) : query.isError ? (
+        <div className={styles.stateBox}>
+          <div className={styles.stateIcon}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <line x1="12" y1="8" x2="12" y2="13" />
+              <line x1="12" y1="16.5" x2="12" y2="16.5" />
+            </svg>
+          </div>
+          <h2 className={styles.stateTitle}>Не вдалося завантажити задачі</h2>
+          <p className={styles.stateText}>Спробуйте оновити сторінку.</p>
+          <button type="button" className={styles.btnStart} style={{ width: "auto" }} onClick={() => query.refetch()}>
+            Оновити
+          </button>
+        </div>
+      ) : tasks.length ? (
+        <section className={styles.grid} aria-label="Список виробничих задач">
+          {tasks.map((task) => (
+            <TaskCard key={task.id} task={task} onChanged={() => query.refetch()} />
           ))}
         </section>
       ) : (
-        <EmptyState
-          title={activeTasks.length ? "Для цієї філії активних задач немає" : "Активних задач немає"}
-          description={
-            activeTasks.length
+        <div className={styles.stateBox}>
+          <div className={styles.stateIcon}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12h4l2 5 4-10 2 5h6" />
+            </svg>
+          </div>
+          <h2 className={styles.stateTitle}>Зараз немає виробничих задач</h2>
+          <p className={styles.stateText}>
+            {activeTasks.length
               ? "Оберіть іншу філію або дочекайтесь нових задач для поточної."
-              : "Коли надійде прогноз через API, задачі одразу з'являться на tablet board."
-          }
-        />
+              : "Коли надійде прогноз через API, задачі одразу з'являться на цьому екрані."}
+          </p>
+        </div>
       )}
     </main>
   );

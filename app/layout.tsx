@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import "@/app/globals.css";
+import "@/app/silpo-fonts.css";
 
 import { AppProvider } from "@/components/providers/app-provider";
 import { env } from "@/lib/env";
