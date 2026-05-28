@@ -198,9 +198,34 @@ model ProductionPlanPriority {
   demandBeforeQty       Float
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+  productionTask        ProductionTask?
 
   @@unique([filialId, historyDate, lagerId])
   @@index([filialId])
   @@index([filialId, historyDate])
+  @@index([priority])
+}
+
+model ProductionTask {
+  id            String       @id @default(cuid())
+  sourceId      String       @unique
+  source        ProductionPlanPriority @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  filialId      Int
+  lagerId       Int
+  historyDate   DateTime     @db.Date
+  status        TaskStatus   @default(NEW)
+  priority      TaskPriority
+  priorityLevel Int
+  quantity      Float
+  coveredHours  Float
+  reason        String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  startedAt     DateTime?
+  completedAt   DateTime?
+
+  @@index([filialId])
+  @@index([filialId, historyDate])
+  @@index([status])
   @@index([priority])
 }

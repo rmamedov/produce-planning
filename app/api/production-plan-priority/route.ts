@@ -6,6 +6,7 @@ import {
   productionPlanPriorityQuerySchema
 } from "@/api/schemas";
 import { productionPlanPriorityRepository } from "@/repositories/production-plan-priority.repository";
+import { productionTaskGenerationService } from "@/services/production-tasks/production-task-generation.service";
 
 export async function POST(request: Request) {
   try {
@@ -33,7 +34,10 @@ export async function POST(request: Request) {
 
     const result = await productionPlanPriorityRepository.upsertMany(items);
 
-    return ok({ upserted: result.length }, 201);
+    // Automatically (re)generate production tasks from the freshly ingested plan.
+    const tasks = await productionTaskGenerationService.generate(body.filial_id);
+
+    return ok({ upserted: result.length, tasks }, 201);
   } catch (error) {
     return handleApiError(error);
   }

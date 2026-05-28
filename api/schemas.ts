@@ -97,6 +97,17 @@ export const productionPlanPriorityQuerySchema = z.object({
   lager_id: z.coerce.number().int().positive().optional()
 });
 
+export const productionTaskQuerySchema = z.object({
+  filial_id: z.coerce.number().int().positive().optional(),
+  history_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "history_date має бути у форматі YYYY-MM-DD").optional(),
+  status: z.enum(["NEW", "IN_PROGRESS", "DONE", "CANCELLED"]).optional(),
+  priority: z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW"]).optional()
+});
+
+export const productionTaskGenerateSchema = z.object({
+  filial_id: z.coerce.number().int().positive("filial_id має бути додатним цілим числом").optional()
+});
+
 export const settingsSchema = z.object({
   companyName: z.string().min(2, "Назва компанії обов'язкова"),
   planningHorizonHours: z.coerce.number().int().min(1).max(12),
