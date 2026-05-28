@@ -29,6 +29,7 @@ const items = [
   { href: "/admin/tech-cards", label: "Технологічні карти", icon: ChefHat },
   { href: "/admin/forecasts", label: "Прогнози", icon: CalendarClock },
   { href: "/admin/tasks", label: "Завдання", icon: ClipboardList },
+  { href: "/admin/production-tasks", label: "Виробничі задачі", icon: Factory },
   { href: "/admin/analytics", label: "Аналітика", icon: BarChart3 },
   { href: "/admin/manual-tasks", label: "Ручне створення завдання", icon: Wrench },
   { href: "/admin/task-generator", label: "Генерація задач", icon: Sparkles },
