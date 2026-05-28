@@ -40,5 +40,18 @@ export const productionTaskRepository = {
     return prisma.productionTask.findUnique({
       where: { sourceId }
     });
+  },
+
+  getById(id: string) {
+    return prisma.productionTask.findUnique({
+      where: { id }
+    });
+  },
+
+  update(id: string, data: Parameters<typeof prisma.productionTask.update>[0]["data"]) {
+    return prisma.productionTask.update({
+      where: { id },
+      data
+    });
   }
 };
