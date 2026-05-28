@@ -18,6 +18,23 @@ export function formatRelative(value: string | Date | null | undefined) {
   return formatDistanceToNowStrict(new Date(value), { addSuffix: true });
 }
 
+/**
+ * Stock coverage time. Under an hour it reads in whole minutes («45 хв»)
+ * instead of fractional hours («0.75 год»); an hour or more stays in hours.
+ */
+export function formatCoverageParts(hours: number): { value: string; unit: string } {
+  if (hours < 1) {
+    return { value: String(Math.round(hours * 60)), unit: "хв" };
+  }
+
+  return { value: String(hours), unit: "год" };
+}
+
+export function formatCoverage(hours: number): string {
+  const { value, unit } = formatCoverageParts(hours);
+  return `${value} ${unit}`;
+}
+
 export function getStatusLabel(status: TaskStatus) {
   switch (status) {
     case TaskStatus.NEW:

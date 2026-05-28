@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { LoadingState } from "@/components/ui/loading-state";
 import { Select } from "@/components/ui/select";
 import { apiClient, useApiMutation, useApiQuery } from "@/hooks/use-api";
+import { formatCoverage } from "@/lib/format";
 
 interface ProductionTask {
   id: string;
@@ -105,8 +106,8 @@ const columns: ColumnDef<ProductionTask>[] = [
   },
   {
     accessorKey: "covered_hours",
-    header: "Покриття, год",
-    cell: ({ row }) => `${row.original.covered_hours}`
+    header: "Покриття",
+    cell: ({ row }) => formatCoverage(row.original.covered_hours)
   },
   {
     accessorKey: "status",

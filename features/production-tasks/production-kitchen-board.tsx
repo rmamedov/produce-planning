@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { apiClient, useApiMutation, useApiQuery } from "@/hooks/use-api";
+import { formatCoverageParts } from "@/lib/format";
 import styles from "./production-kitchen-board.module.css";
 
 interface ProductionTask {
@@ -60,12 +61,9 @@ function CheckIcon() {
   );
 }
 
-function formatHours(value: number) {
-  return Number.isInteger(value) ? String(value) : String(value);
-}
-
 function TaskCard({ task, onChanged }: { task: ProductionTask; onChanged: () => void }) {
   const meta = PRIORITY_META[task.priority];
+  const coverage = formatCoverageParts(task.covered_hours);
 
   const start = useApiMutation({
     mutationFn: () => apiClient(`/api/production-tasks/${task.id}/start`, { method: "POST" }),
@@ -116,8 +114,8 @@ function TaskCard({ task, onChanged }: { task: ProductionTask; onChanged: () => 
         <div className={styles.metric}>
           <span className={styles.metricLabel}>Покриття</span>
           <span className={styles.metricValue}>
-            {formatHours(task.covered_hours)}
-            <span className={styles.unit}>год</span>
+            {coverage.value}
+            <span className={styles.unit}>{coverage.unit}</span>
           </span>
         </div>
       </div>
