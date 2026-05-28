@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Production Plan Priority API — Documentation</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface-2: #232734;
+      --border: #2e3348;
+      --text: #e4e6f0;
+      --text-muted: #8b90a5;
+      --accent: #6c8aff;
+      --accent-dim: rgba(108,138,255,0.12);
+      --green: #34d399;
+      --green-dim: rgba(52,211,153,0.12);
+      --orange: #fb923c;
+      --orange-dim: rgba(251,146,60,0.12);
+      --red: #f87171;
+      --red-dim: rgba(248,113,113,0.12);
+      --yellow: #fbbf24;
+      --yellow-dim: rgba(251,191,36,0.12);
+      --purple: #a78bfa;
+      --purple-dim: rgba(167,139,250,0.12);
+      --code-bg: #161922;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 260px;
+      height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 28px 20px;
+      z-index: 100;
+    }
+
+    .sidebar-logo {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.3px;
+      margin-bottom: 6px;
+    }
+
+    .sidebar-version {
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--accent-dim);
+      padding: 2px 8px;
+      border-radius: 20px;
+      display: inline-block;
+      margin-bottom: 28px;
+    }
+
+    .sidebar-section {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      margin: 24px 0 10px;
+    }
+
+    .sidebar a {
+      display: block;
+      padding: 7px 12px;
+      margin: 2px 0;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-radius: var(--radius-sm);
+      transition: all 0.15s;
+    }
+
+    .sidebar a:hover,
+    .sidebar a.active {
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .sidebar a .method-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 4px;
+      margin-right: 6px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .badge-post { background: var(--green-dim); color: var(--green); }
+    .badge-get { background: var(--accent-dim); color: var(--accent); }
+
+    /* ── Main ── */
+    .main {
+      grid-column: 2;
+      padding: 48px 56px 120px;
+      max-width: 960px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      margin-bottom: 56px;
+    }
+
+    .hero h1 {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 600px;
+    }
+
+    .base-url-card {
+      margin-top: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .base-url-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .base-url-value {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 14px;
+      color: var(--green);
+    }
+
+    /* ── Section ── */
+    .section {
+      margin-bottom: 64px;
+    }
+
+    .section-anchor {
+      scroll-margin-top: 24px;
+    }
+
+    h2 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 28px 0 12px;
+      color: var(--text);
+    }
+
+    h4 {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 20px 0 8px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    p {
+      margin-bottom: 12px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* ── Method pill ── */
+    .method-pill {
+      display: inline-flex;
+      align-items: center;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    .method-post { background: var(--green-dim); color: var(--green); }
+    .method-get { background: var(--accent-dim); color: var(--accent); }
+
+    .endpoint-path {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* ── Endpoint card ── */
+    .endpoint-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin: 16px 0 24px;
+    }
+
+    .endpoint-card .url-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--code-bg);
+      border-radius: var(--radius-sm);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 14px;
+    }
+
+    .endpoint-card .desc {
+      margin-top: 14px;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    /* ── Tables ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 24px;
+      font-size: 13px;
+    }
+
+    thead th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    tbody td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background: var(--surface);
+    }
+
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    td code, p code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .type-tag {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: var(--purple-dim);
+      color: var(--purple);
+    }
+
+    .required-tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--red-dim);
+      color: var(--red);
+      text-transform: uppercase;
+    }
+
+    .optional-tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--surface-2);
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    /* ── Code blocks ── */
+    .code-block {
+      position: relative;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin: 12px 0 24px;
+      overflow: hidden;
+    }
+
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .code-header .lang {
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-size: 10px;
+    }
+
+    .copy-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+
+    .copy-btn:hover {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    pre {
+      padding: 16px 20px;
+      overflow-x: auto;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    /* ── JSON syntax ── */
+    .json-key { color: #7dd3fc; }
+    .json-str { color: #86efac; }
+    .json-num { color: #fbbf24; }
+    .json-null { color: #f87171; font-style: italic; }
+    .json-bool { color: #c084fc; }
+    .json-bracket { color: #8b90a5; }
+    .json-comment { color: #5a5f7a; font-style: italic; }
+
+    /* ── Priority badges ── */
+    .priority-1 { background: var(--red-dim); color: var(--red); padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px; }
+    .priority-2 { background: var(--orange-dim); color: var(--orange); padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px; }
+    .priority-3 { background: var(--yellow-dim); color: var(--yellow); padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px; }
+    .priority-4 { background: var(--green-dim); color: var(--green); padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 12px; }
+
+    /* ── Status codes ── */
+    .status-2xx { color: var(--green); font-weight: 700; }
+    .status-4xx { color: var(--orange); font-weight: 700; }
+    .status-5xx { color: var(--red); font-weight: 700; }
+
+    /* ── Callout ── */
+    .callout {
+      padding: 16px 20px;
+      border-radius: var(--radius);
+      margin: 16px 0;
+      font-size: 13px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .callout-info {
+      background: var(--accent-dim);
+      border: 1px solid rgba(108,138,255,0.2);
+    }
+
+    .callout-warn {
+      background: var(--orange-dim);
+      border: 1px solid rgba(251,146,60,0.2);
+    }
+
+    .callout-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .callout p {
+      margin: 0;
+      color: var(--text);
+    }
+
+    /* ── Divider ── */
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 48px 0;
+    }
+
+    /* ── Param list ── */
+    .param-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .param-item {
+      display: grid;
+      grid-template-columns: 160px 80px 1fr;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      align-items: center;
+    }
+
+    .param-item:nth-child(odd) {
+      background: var(--surface);
+    }
+
+    .param-name {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .param-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* ── Try it panel ── */
+    .try-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin: 24px 0;
+    }
+
+    .try-panel h4 {
+      margin-top: 0;
+      color: var(--text);
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 15px;
+    }
+
+    .try-input-group {
+      display: flex;
+      gap: 10px;
+      margin: 12px 0;
+      align-items: flex-end;
+    }
+
+    .try-input-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .try-input-group input, .try-input-group select {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 8px 12px;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .try-input-group input:focus, .try-input-group select:focus {
+      border-color: var(--accent);
+    }
+
+    .try-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+
+    .try-btn:hover {
+      opacity: 0.85;
+    }
+
+    .try-result {
+      margin-top: 16px;
+      display: none;
+    }
+
+    .try-result.visible {
+      display: block;
+    }
+
+    .try-result pre {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .try-status {
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .main { padding: 24px 20px 80px; grid-column: 1; }
+      .param-item { grid-template-columns: 1fr; gap: 4px; }
+      .try-input-group { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">Production Plan API</div>
+    <span class="sidebar-version">v1.0</span>
+
+    <div class="sidebar-section">Overview</div>
+    <a href="#overview">Introduction</a>
+    <a href="#base-url">Base URL</a>
+    <a href="#data-model">Data Model</a>
+
+    <div class="sidebar-section">Endpoints</div>
+    <a href="#post-priority">
+      <span class="method-badge badge-post">POST</span>Write Data
+    </a>
+    <a href="#get-priority">
+      <span class="method-badge badge-get">GET</span>Read &amp; Filter
+    </a>
+
+    <div class="sidebar-section">Reference</div>
+    <a href="#schema-response">Response Schema</a>
+    <a href="#priority-levels">Priority Levels</a>
+    <a href="#errors">Error Codes</a>
+    <a href="#notes">Notes</a>
+
+    <div class="sidebar-section">Playground</div>
+    <a href="#try-get">Try GET</a>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- Hero -->
+    <div class="hero" id="overview">
+      <h1>Production Plan Priority API</h1>
+      <p>
+        API for storing and querying production priority data per filial.
+        Shows current stock coverage, recommended production quantities,
+        and urgency levels per product (lager) for today and tomorrow.
+      </p>
+
+      <div class="base-url-card" id="base-url">
+        <span class="base-url-label">Base URL</span>
+        <span class="base-url-value">http://165.245.253.31</span>
+      </div>
+    </div>
+
+    <hr>
+
+    <!-- Data Model -->
+    <section class="section" id="data-model">
+      <h2>Data Model</h2>
+      <p>Data is stored flat in the database with a unique constraint on
+        <code>filial_id</code> + <code>history_date</code> + <code>lager_id</code>.
+        Repeated writes for the same combination will update the existing record (upsert).</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>filial_id</code></td><td><span class="type-tag">integer</span></td><td>Delivery filial identifier</td></tr>
+            <tr><td><code>history_date</code></td><td><span class="type-tag">date</span></td><td>Date of the assessment (YYYY-MM-DD)</td></tr>
+            <tr><td><code>snapshot_hour</code></td><td><span class="type-tag">integer|null</span></td><td>Hour of last stock snapshot (0/null for tomorrow)</td></tr>
+            <tr><td><code>lager_id</code></td><td><span class="type-tag">integer</span></td><td>Product (lager) identifier</td></tr>
+            <tr><td><code>priority</code></td><td><span class="type-tag">integer</span></td><td>Urgency level: 1-4</td></tr>
+            <tr><td><code>covered_hours</code></td><td><span class="type-tag">number</span></td><td>Hours current stock can sustain demand</td></tr>
+            <tr><td><code>current_stock_qty</code></td><td><span class="type-tag">number</span></td><td>DAMS stock at last known hour</td></tr>
+            <tr><td><code>demand_till_day_end</code></td><td><span class="type-tag">number</span></td><td>Forecasted demand from snapshot hour till end of day</td></tr>
+            <tr><td><code>demand_whole_day</code></td><td><span class="type-tag">number</span></td><td>Total forecasted demand for the entire day</td></tr>
+            <tr><td><code>recommended_to_produce</code></td><td><span class="type-tag">number</span></td><td>Quantity to produce to cover till day end</td></tr>
+            <tr><td><code>sales_qty</code></td><td><span class="type-tag">number</span></td><td>Actual sales in past hours</td></tr>
+            <tr><td><code>produced_qty</code></td><td><span class="type-tag">number</span></td><td>Quantity received via receipts in past hours</td></tr>
+            <tr><td><code>demand_before_qty</code></td><td><span class="type-tag">number</span></td><td>Forecasted demand for hours before the snapshot</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <hr>
+
+    <!-- POST Endpoint -->
+    <section class="section section-anchor" id="post-priority">
+      <h2>
+        <span class="method-pill method-post">POST</span>
+        <span class="endpoint-path">Write Priority Data</span>
+      </h2>
+
+      <div class="endpoint-card">
+        <div class="url-row">
+          <span class="method-pill method-post">POST</span>
+          <span>/api/production-plan-priority</span>
+        </div>
+        <p class="desc">
+          Writes production priority data for a filial. Accepts nested structure with dates and items.
+          Performs upsert &mdash; if a record with the same <code>filial_id</code> + <code>history_date</code> + <code>lager_id</code> already exists, it will be updated.
+        </p>
+      </div>
+
+      <h3>Request Headers</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Header</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td><code>Content-Type</code></td><td><code>application/json</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Request Body</h3>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>filial_id</code></td>
+              <td><span class="type-tag">integer</span></td>
+              <td><span class="required-tag">required</span></td>
+              <td>Delivery filial identifier (positive integer)</td>
+            </tr>
+            <tr>
+              <td><code>dates</code></td>
+              <td><span class="type-tag">DateEntry[]</span></td>
+              <td><span class="required-tag">required</span></td>
+              <td>Array of date entries (min 1)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>DateEntry</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>history_date</code></td>
+              <td><span class="type-tag">string</span></td>
+              <td><span class="required-tag">required</span></td>
+              <td>Date in YYYY-MM-DD format</td>
+            </tr>
+            <tr>
+              <td><code>snapshot_hour</code></td>
+              <td><span class="type-tag">integer|null</span></td>
+              <td><span class="required-tag">required</span></td>
+              <td>Hour of last snapshot (0-23 or null)</td>
+            </tr>
+            <tr>
+              <td><code>items</code></td>
+              <td><span class="type-tag">PriorityItem[]</span></td>
+              <td><span class="required-tag">required</span></td>
+              <td>Array of lager priority items (min 1)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>PriorityItem</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>lager_id</code></td><td><span class="type-tag">integer</span></td><td><span class="required-tag">required</span></td><td>Product identifier (positive)</td></tr>
+            <tr><td><code>priority</code></td><td><span class="type-tag">integer</span></td><td><span class="required-tag">required</span></td><td>Urgency: 1-4</td></tr>
+            <tr><td><code>covered_hours</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Hours of stock coverage (&ge;0)</td></tr>
+            <tr><td><code>current_stock_qty</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Current stock (&ge;0)</td></tr>
+            <tr><td><code>demand_till_day_end</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Demand till day end (&ge;0)</td></tr>
+            <tr><td><code>demand_whole_day</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Whole day demand (&ge;0)</td></tr>
+            <tr><td><code>recommended_to_produce</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Recommended production qty (&ge;0)</td></tr>
+            <tr><td><code>sales_qty</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Actual sales (&ge;0)</td></tr>
+            <tr><td><code>produced_qty</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Produced quantity (&ge;0)</td></tr>
+            <tr><td><code>demand_before_qty</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Demand before snapshot (&ge;0)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Example Request</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="lang">curl</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+<pre>curl -X POST http://165.245.253.31/api/production-plan-priority \
+  -H "Content-Type: application/json" \
+  -d '{
+    <span class="json-key">"filial_id"</span>: <span class="json-num">3322</span>,
+    <span class="json-key">"dates"</span>: [
+      {
+        <span class="json-key">"history_date"</span>: <span class="json-str">"2026-06-15"</span>,
+        <span class="json-key">"snapshot_hour"</span>: <span class="json-num">14</span>,
+        <span class="json-key">"items"</span>: [
+          {
+            <span class="json-key">"lager_id"</span>: <span class="json-num">123456</span>,
+            <span class="json-key">"priority"</span>: <span class="json-num">1</span>,
+            <span class="json-key">"covered_hours"</span>: <span class="json-num">0.75</span>,
+            <span class="json-key">"current_stock_qty"</span>: <span class="json-num">2.5</span>,
+            <span class="json-key">"demand_till_day_end"</span>: <span class="json-num">12.3</span>,
+            <span class="json-key">"demand_whole_day"</span>: <span class="json-num">18.6</span>,
+            <span class="json-key">"recommended_to_produce"</span>: <span class="json-num">9.8</span>,
+            <span class="json-key">"sales_qty"</span>: <span class="json-num">6.2</span>,
+            <span class="json-key">"produced_qty"</span>: <span class="json-num">3.0</span>,
+            <span class="json-key">"demand_before_qty"</span>: <span class="json-num">6.3</span>
+          }
+        ]
+      }
+    ]
+  }'</pre>
+      </div>
+
+      <h3>Success Response</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <span><span class="status-2xx">201</span> Created</span>
+          <span class="lang">json</span>
+        </div>
+<pre>{
+  <span class="json-key">"upserted"</span>: <span class="json-num">1</span>
+}</pre>
+      </div>
+    </section>
+
+    <hr>
+
+    <!-- GET Endpoint -->
+    <section class="section section-anchor" id="get-priority">
+      <h2>
+        <span class="method-pill method-get">GET</span>
+        <span class="endpoint-path">Read &amp; Filter Data</span>
+      </h2>
+
+      <div class="endpoint-card">
+        <div class="url-row">
+          <span class="method-pill method-get">GET</span>
+          <span>/api/production-plan-priority?filial_id=<em>{id}</em></span>
+        </div>
+        <p class="desc">
+          Returns production priority data for a given filial, grouped by date.
+          Items are sorted by <code>priority ASC</code>, <code>covered_hours ASC</code>.
+          Supports optional filters via query parameters.
+        </p>
+      </div>
+
+      <h3>Query Parameters</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>filial_id</code></td>
+              <td><span class="type-tag">integer</span></td>
+              <td><span class="required-tag">required</span></td>
+              <td>Delivery filial identifier</td>
+            </tr>
+            <tr>
+              <td><code>history_date</code></td>
+              <td><span class="type-tag">string</span></td>
+              <td><span class="optional-tag">optional</span></td>
+              <td>Filter by date (YYYY-MM-DD)</td>
+            </tr>
+            <tr>
+              <td><code>priority</code></td>
+              <td><span class="type-tag">integer</span></td>
+              <td><span class="optional-tag">optional</span></td>
+              <td>Filter by priority level (1-4)</td>
+            </tr>
+            <tr>
+              <td><code>lager_id</code></td>
+              <td><span class="type-tag">integer</span></td>
+              <td><span class="optional-tag">optional</span></td>
+              <td>Filter by product (lager) ID</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Example Requests</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="lang">curl examples</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+<pre><span class="json-comment"># All data for filial</span>
+curl "http://165.245.253.31/api/production-plan-priority?filial_id=3322"
+
+<span class="json-comment"># Filter by date</span>
+curl "http://165.245.253.31/api/production-plan-priority?filial_id=3322&amp;history_date=2026-06-15"
+
+<span class="json-comment"># Filter by priority (critical only)</span>
+curl "http://165.245.253.31/api/production-plan-priority?filial_id=3322&amp;priority=1"
+
+<span class="json-comment"># Filter by specific lager</span>
+curl "http://165.245.253.31/api/production-plan-priority?filial_id=3322&amp;lager_id=123456"
+
+<span class="json-comment"># Combine filters</span>
+curl "http://165.245.253.31/api/production-plan-priority?filial_id=3322&amp;history_date=2026-06-15&amp;priority=1"</pre>
+      </div>
+
+      <h3>Success Response</h3>
+      <div class="code-block" id="schema-response">
+        <div class="code-header">
+          <span><span class="status-2xx">200</span> OK</span>
+          <span class="lang">json</span>
+        </div>
+<pre>{
+  <span class="json-key">"filial_id"</span>: <span class="json-num">3322</span>,
+  <span class="json-key">"generated_at"</span>: <span class="json-str">"2026-06-15T14:32:00.000Z"</span>,
+  <span class="json-key">"dates"</span>: [
+    {
+      <span class="json-key">"history_date"</span>: <span class="json-str">"2026-06-15"</span>,
+      <span class="json-key">"snapshot_hour"</span>: <span class="json-num">14</span>,
+      <span class="json-key">"items"</span>: [
+        {
+          <span class="json-key">"lager_id"</span>: <span class="json-num">123456</span>,
+          <span class="json-key">"priority"</span>: <span class="json-num">1</span>,
+          <span class="json-key">"covered_hours"</span>: <span class="json-num">0.75</span>,
+          <span class="json-key">"current_stock_qty"</span>: <span class="json-num">2.5</span>,
+          <span class="json-key">"demand_till_day_end"</span>: <span class="json-num">12.3</span>,
+          <span class="json-key">"demand_whole_day"</span>: <span class="json-num">18.6</span>,
+          <span class="json-key">"recommended_to_produce"</span>: <span class="json-num">9.8</span>,
+          <span class="json-key">"sales_qty"</span>: <span class="json-num">6.2</span>,
+          <span class="json-key">"produced_qty"</span>: <span class="json-num">3.0</span>,
+          <span class="json-key">"demand_before_qty"</span>: <span class="json-num">6.3</span>
+        },
+        {
+          <span class="json-key">"lager_id"</span>: <span class="json-num">789012</span>,
+          <span class="json-key">"priority"</span>: <span class="json-num">2</span>,
+          <span class="json-key">"covered_hours"</span>: <span class="json-num">2.4</span>,
+          <span class="json-comment">// ... more fields</span>
+        }
+      ]
+    },
+    {
+      <span class="json-key">"history_date"</span>: <span class="json-str">"2026-06-16"</span>,
+      <span class="json-key">"snapshot_hour"</span>: <span class="json-null">null</span>,
+      <span class="json-key">"items"</span>: [<span class="json-comment">...</span>]
+    }
+  ]
+}</pre>
+      </div>
+
+      <h3>Response Schema</h3>
+
+      <h4>Root object</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>filial_id</code></td><td><span class="type-tag">integer</span></td><td>Requested filial identifier</td></tr>
+            <tr><td><code>generated_at</code></td><td><span class="type-tag">ISO 8601</span></td><td>Timestamp when response was generated</td></tr>
+            <tr><td><code>dates</code></td><td><span class="type-tag">DateEntry[]</span></td><td>Array of date entries, sorted chronologically</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>DateEntry</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>history_date</code></td><td><span class="type-tag">string</span></td><td>Date of assessment (YYYY-MM-DD)</td></tr>
+            <tr><td><code>snapshot_hour</code></td><td><span class="type-tag">integer|null</span></td><td>Hour of last stock snapshot</td></tr>
+            <tr><td><code>items</code></td><td><span class="type-tag">PriorityItem[]</span></td><td>Sorted by priority ASC, covered_hours ASC</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>PriorityItem</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>lager_id</code></td><td><span class="type-tag">integer</span></td><td>Product (lager) identifier</td></tr>
+            <tr><td><code>priority</code></td><td><span class="type-tag">integer</span></td><td>Urgency level 1-4</td></tr>
+            <tr><td><code>covered_hours</code></td><td><span class="type-tag">number</span></td><td>Fractional hours of stock coverage</td></tr>
+            <tr><td><code>current_stock_qty</code></td><td><span class="type-tag">number</span></td><td>Stock at last known hour</td></tr>
+            <tr><td><code>demand_till_day_end</code></td><td><span class="type-tag">number</span></td><td>Forecasted demand till EOD</td></tr>
+            <tr><td><code>demand_whole_day</code></td><td><span class="type-tag">number</span></td><td>Total day demand</td></tr>
+            <tr><td><code>recommended_to_produce</code></td><td><span class="type-tag">number</span></td><td>Qty to produce (0 if covered)</td></tr>
+            <tr><td><code>sales_qty</code></td><td><span class="type-tag">number</span></td><td>Actual sales in past hours</td></tr>
+            <tr><td><code>produced_qty</code></td><td><span class="type-tag">number</span></td><td>Qty received in past hours</td></tr>
+            <tr><td><code>demand_before_qty</code></td><td><span class="type-tag">number</span></td><td>Demand before snapshot hour</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <hr>
+
+    <!-- Priority Levels -->
+    <section class="section section-anchor" id="priority-levels">
+      <h2>Priority Levels</h2>
+      <p>The <code>priority</code> field indicates the urgency level for production based on stock coverage.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Value</th><th>Level</th><th>Condition</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span class="priority-1">1</span></td>
+              <td>Critical</td>
+              <td>Stock coverage &le; 1 hour</td>
+              <td>Immediate production required</td>
+            </tr>
+            <tr>
+              <td><span class="priority-2">2</span></td>
+              <td>Warning</td>
+              <td>Stock coverage &le; 4 hours</td>
+              <td>Plan production soon</td>
+            </tr>
+            <tr>
+              <td><span class="priority-3">3</span></td>
+              <td>Moderate</td>
+              <td>Stock coverage > 4 hours</td>
+              <td>Monitor, produce if capacity allows</td>
+            </tr>
+            <tr>
+              <td><span class="priority-4">4</span></td>
+              <td>Covered</td>
+              <td>Fully covered till day end</td>
+              <td>No action needed</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">&#x1f4a1;</span>
+        <p>The <code>covered_hours</code> value is fractional. For example, <strong>2.40</strong> means stock covers 2 full hours + 40% of the 3rd hour's demand.</p>
+      </div>
+    </section>
+
+    <hr>
+
+    <!-- Errors -->
+    <section class="section section-anchor" id="errors">
+      <h2>Error Responses</h2>
+
+      <h3><span class="status-4xx">400</span> Bad Request</h3>
+      <p>Missing or invalid parameters.</p>
+      <div class="code-block">
+        <div class="code-header"><span class="lang">json</span></div>
+<pre>{
+  <span class="json-key">"error"</span>: <span class="json-str">"INVALID_REQUEST"</span>,
+  <span class="json-key">"message"</span>: <span class="json-str">"filial_id is required and must be a positive integer"</span>
+}</pre>
+      </div>
+
+      <p>Validation errors from Zod return a detailed structure:</p>
+      <div class="code-block">
+        <div class="code-header"><span class="lang">json</span></div>
+<pre>{
+  <span class="json-key">"message"</span>: <span class="json-str">"Validation failed"</span>,
+  <span class="json-key">"errors"</span>: {
+    <span class="json-key">"formErrors"</span>: [],
+    <span class="json-key">"fieldErrors"</span>: {
+      <span class="json-key">"filial_id"</span>: [<span class="json-str">"Expected number, received string"</span>]
+    }
+  }
+}</pre>
+      </div>
+
+      <h3><span class="status-4xx">404</span> Not Found</h3>
+      <p>No data found for the given filters.</p>
+      <div class="code-block">
+        <div class="code-header"><span class="lang">json</span></div>
+<pre>{
+  <span class="json-key">"error"</span>: <span class="json-str">"NO_DATA"</span>,
+  <span class="json-key">"message"</span>: <span class="json-str">"No production plan data found for filial_id 9999"</span>
+}</pre>
+      </div>
+
+      <h3><span class="status-5xx">500</span> Internal Server Error</h3>
+      <p>Unexpected server error.</p>
+      <div class="code-block">
+        <div class="code-header"><span class="lang">json</span></div>
+<pre>{
+  <span class="json-key">"message"</span>: <span class="json-str">"Internal server error"</span>
+}</pre>
+      </div>
+    </section>
+
+    <hr>
+
+    <!-- Notes -->
+    <section class="section section-anchor" id="notes">
+      <h2>Notes</h2>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">&#x1f504;</span>
+        <p>Data refreshes every hour, aligned with DAMS stock snapshots.</p>
+      </div>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">&#x1f4c5;</span>
+        <p><code>snapshot_hour</code> for tomorrow will be <code>null</code> until stock data becomes available.</p>
+      </div>
+
+      <div class="callout callout-warn">
+        <span class="callout-icon">&#x26a0;&#xfe0f;</span>
+        <p>Items with <code>priority = 4</code> are fully covered &mdash; no action needed.
+           <code>recommended_to_produce = 0</code> when <code>current_stock_qty &ge; demand_till_day_end</code>.</p>
+      </div>
+
+      <div class="callout callout-info">
+        <span class="callout-icon">&#x1f501;</span>
+        <p>POST performs <strong>upsert</strong>: if a record with the same <code>filial_id</code> + <code>history_date</code> + <code>lager_id</code> already exists, all fields are updated. No duplicates are created.</p>
+      </div>
+    </section>
+
+    <hr>
+
+    <!-- Try GET -->
+    <section class="section section-anchor" id="try-get">
+      <h2>Playground</h2>
+      <p>Test the GET endpoint directly from this page.</p>
+
+      <div class="try-panel">
+        <h4>GET /api/production-plan-priority</h4>
+        <div class="try-input-group">
+          <div>
+            <label for="try-filial">filial_id *</label>
+            <input id="try-filial" type="number" value="3322" style="width:120px">
+          </div>
+          <div>
+            <label for="try-date">history_date</label>
+            <input id="try-date" type="date" style="width:160px">
+          </div>
+          <div>
+            <label for="try-priority">priority</label>
+            <select id="try-priority" style="width:100px">
+              <option value="">All</option>
+              <option value="1">1 - Critical</option>
+              <option value="2">2 - Warning</option>
+              <option value="3">3 - Moderate</option>
+              <option value="4">4 - Covered</option>
+            </select>
+          </div>
+          <div>
+            <label for="try-lager">lager_id</label>
+            <input id="try-lager" type="number" placeholder="optional" style="width:120px">
+          </div>
+          <button class="try-btn" onclick="tryGet()">Send Request</button>
+        </div>
+        <div class="try-result" id="try-result">
+          <div class="try-status" id="try-status"></div>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="lang">Response</span>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre id="try-output"></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+function tryGet() {
+  const filial = document.getElementById('try-filial').value;
+  const date = document.getElementById('try-date').value;
+  const priority = document.getElementById('try-priority').value;
+  const lager = document.getElementById('try-lager').value;
+
+  if (!filial) { alert('filial_id is required'); return; }
+
+  let url = `/api/production-plan-priority?filial_id=${filial}`;
+  if (date) url += `&history_date=${date}`;
+  if (priority) url += `&priority=${priority}`;
+  if (lager) url += `&lager_id=${lager}`;
+
+  const statusEl = document.getElementById('try-status');
+  const outputEl = document.getElementById('try-output');
+  const resultEl = document.getElementById('try-result');
+
+  statusEl.textContent = 'Loading...';
+  statusEl.style.color = 'var(--text-muted)';
+  resultEl.classList.add('visible');
+
+  fetch(url)
+    .then(async res => {
+      const data = await res.json();
+      const statusClass = res.status < 300 ? 'status-2xx' : res.status < 500 ? 'status-4xx' : 'status-5xx';
+      statusEl.innerHTML = `<span class="${statusClass}">${res.status} ${res.statusText}</span> &mdash; <code>${url}</code>`;
+      outputEl.textContent = JSON.stringify(data, null, 2);
+    })
+    .catch(err => {
+      statusEl.innerHTML = `<span class="status-5xx">Error</span>`;
+      outputEl.textContent = err.message;
+    });
+}
+
+function copyCode(btn) {
+  const pre = btn.closest('.code-block').querySelector('pre');
+  navigator.clipboard.writeText(pre.textContent).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+}
+</script>
+</body>
+</html>

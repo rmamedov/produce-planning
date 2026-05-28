@@ -180,3 +180,27 @@ model Settings {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 }
+
+model ProductionPlanPriority {
+  id                    String   @id @default(cuid())
+  filialId              Int
+  historyDate           DateTime @db.Date
+  snapshotHour          Int?
+  lagerId               Int
+  priority              Int
+  coveredHours          Float
+  currentStockQty       Float
+  demandTillDayEnd      Float
+  demandWholeDay        Float
+  recommendedToProduce  Float
+  salesQty              Float
+  producedQty           Float
+  demandBeforeQty       Float
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([filialId, historyDate, lagerId])
+  @@index([filialId])
+  @@index([filialId, historyDate])
+  @@index([priority])
+}

@@ -66,6 +66,37 @@ export const manualTaskSchema = z.object({
   comment: z.string().max(200, "Коментар має містити до 200 символів").optional()
 });
 
+export const productionPlanPriorityItemSchema = z.object({
+  lager_id: z.number().int().positive("lager_id має бути додатним цілим числом"),
+  priority: z.number().int().min(1).max(4, "priority має бути від 1 до 4"),
+  covered_hours: z.number().min(0, "covered_hours не може бути від'ємним"),
+  current_stock_qty: z.number().min(0, "current_stock_qty не може бути від'ємним"),
+  demand_till_day_end: z.number().min(0, "demand_till_day_end не може бути від'ємним"),
+  demand_whole_day: z.number().min(0, "demand_whole_day не може бути від'ємним"),
+  recommended_to_produce: z.number().min(0, "recommended_to_produce не може бути від'ємним"),
+  sales_qty: z.number().min(0, "sales_qty не може бути від'ємним"),
+  produced_qty: z.number().min(0, "produced_qty не може бути від'ємним"),
+  demand_before_qty: z.number().min(0, "demand_before_qty не може бути від'ємним")
+});
+
+export const productionPlanPriorityDateEntrySchema = z.object({
+  history_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "history_date має бути у форматі YYYY-MM-DD"),
+  snapshot_hour: z.number().int().min(0).max(23).nullable(),
+  items: z.array(productionPlanPriorityItemSchema).min(1, "Додайте хоча б один item")
+});
+
+export const productionPlanPriorityIngestSchema = z.object({
+  filial_id: z.number().int().positive("filial_id має бути додатним цілим числом"),
+  dates: z.array(productionPlanPriorityDateEntrySchema).min(1, "Додайте хоча б одну дату")
+});
+
+export const productionPlanPriorityQuerySchema = z.object({
+  filial_id: z.coerce.number().int().positive("filial_id має бути додатним цілим числом"),
+  history_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "history_date має бути у форматі YYYY-MM-DD").optional(),
+  priority: z.coerce.number().int().min(1).max(4).optional(),
+  lager_id: z.coerce.number().int().positive().optional()
+});
+
 export const settingsSchema = z.object({
   companyName: z.string().min(2, "Назва компанії обов'язкова"),
   planningHorizonHours: z.coerce.number().int().min(1).max(12),
