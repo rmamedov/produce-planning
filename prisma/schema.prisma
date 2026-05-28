@@ -212,6 +212,7 @@ model ProductionTask {
   source        ProductionPlanPriority @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   filialId      Int
   lagerId       Int
+  lagerName     String?
   historyDate   DateTime     @db.Date
   status        TaskStatus   @default(NEW)
   priority      TaskPriority

@@ -19,6 +19,7 @@ interface ProductionTask {
   id: string;
   filial_id: number;
   lager_id: number;
+  lager_name: string | null;
   history_date: string;
   status: "NEW" | "IN_PROGRESS" | "DONE" | "CANCELLED";
   priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
@@ -61,8 +62,12 @@ function ProductionTaskCard({ task, onChanged }: { task: ProductionTask; onChang
       <CardContent className="flex h-full flex-col gap-4 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-base font-semibold leading-tight">Lager {task.lager_id}</p>
-            <p className="text-xs text-muted-foreground">Філія {task.filial_id} • {task.history_date}</p>
+            <p className="line-clamp-2 text-base font-semibold leading-tight">
+              {task.lager_name ?? `Lager ${task.lager_id}`}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              SKU {task.lager_id} • Філія {task.filial_id} • {task.history_date}
+            </p>
           </div>
           <div className="flex flex-col items-end gap-1">
             <Badge className={getPriorityBadgeClassName(task.priority)}>{getPriorityLabel(task.priority)}</Badge>

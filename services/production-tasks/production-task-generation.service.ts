@@ -2,6 +2,7 @@ import type { ProductionPlanPriority } from "@prisma/client";
 import { TaskPriority, TaskStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { resolveLagerName } from "@/services/silpo/silpo-product.service";
 
 interface PriorityMapping {
   priority: TaskPriority;
@@ -80,6 +81,10 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
     return;
   }
 
+  // Resolve the human-readable product name from Silpo (lager_id = SKU).
+  // Reuse the previously stored name if Silpo is unavailable this run.
+  const lagerName = (await resolveLagerName(row.lagerId)) ?? existing?.lagerName ?? null;
+
   if (existing) {
     await prisma.productionTask.update({
       where: { id: existing.id },
@@ -89,7 +94,8 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
         priorityLevel: row.priority,
         quantity: row.recommendedToProduce,
         coveredHours: row.coveredHours,
-        reason
+        reason,
+        lagerName
       }
     });
     summary.updated += 1;
@@ -101,6 +107,7 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
       sourceId: row.id,
       filialId: row.filialId,
       lagerId: row.lagerId,
+      lagerName,
       historyDate: row.historyDate,
       status: TaskStatus.NEW,
       priority,

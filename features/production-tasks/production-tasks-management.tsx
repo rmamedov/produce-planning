@@ -18,6 +18,7 @@ interface ProductionTask {
   id: string;
   filial_id: number;
   lager_id: number;
+  lager_name: string | null;
   history_date: string;
   status: "NEW" | "IN_PROGRESS" | "DONE" | "CANCELLED";
   priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
@@ -79,9 +80,14 @@ const columns: ColumnDef<ProductionTask>[] = [
     header: "Дата"
   },
   {
-    accessorKey: "lager_id",
-    header: "Lager ID",
-    cell: ({ row }) => <span className="font-mono">{row.original.lager_id}</span>
+    accessorKey: "lager_name",
+    header: "Товар",
+    cell: ({ row }) => (
+      <div className="space-y-0.5">
+        <p className="font-medium">{row.original.lager_name ?? "—"}</p>
+        <p className="font-mono text-xs text-muted-foreground">SKU {row.original.lager_id}</p>
+      </div>
+    )
   },
   {
     accessorKey: "priority",
