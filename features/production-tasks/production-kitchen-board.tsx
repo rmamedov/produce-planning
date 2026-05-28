@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { apiClient, useApiMutation, useApiQuery } from "@/hooks/use-api";
 import { formatCoverageParts } from "@/lib/format";
 import styles from "./production-kitchen-board.module.css";
@@ -199,6 +200,7 @@ export function ProductionKitchenBoard() {
 
   return (
     <main className={styles.shell}>
+      <InstallPrompt />
       <header className={styles.topbar}>
         <div>
           <p className={styles.eyebrow}>Kitchen tablet</p>
