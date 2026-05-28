@@ -34,8 +34,9 @@ export async function POST(request: Request) {
 
     const result = await productionPlanPriorityRepository.upsertMany(items);
 
-    // Automatically (re)generate production tasks from the freshly ingested plan.
-    const tasks = await productionTaskGenerationService.generate(body.filial_id);
+    // Immediately create/refresh production tasks according to the forecast that
+    // just arrived — scoped to exactly the rows that were ingested.
+    const tasks = await productionTaskGenerationService.generateForRows(result);
 
     return ok({ upserted: result.length, tasks }, 201);
   } catch (error) {

@@ -124,6 +124,15 @@ export const productionTaskGenerationService = {
       orderBy: [{ historyDate: "asc" }, { priority: "asc" }, { coveredHours: "asc" }]
     });
 
+    return this.generateForRows(rows);
+  },
+
+  /**
+   * Generates (or refreshes) production tasks for an explicit set of plan rows.
+   * Used right after ingest so tasks are created strictly according to the
+   * forecast that just arrived — no unrelated rows are touched.
+   */
+  async generateForRows(rows: ProductionPlanPriority[]): Promise<GenerationSummary> {
     const summary: GenerationSummary = {
       created: 0,
       updated: 0,
