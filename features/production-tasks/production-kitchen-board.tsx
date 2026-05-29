@@ -235,7 +235,6 @@ export function ProductionKitchenBoard() {
       <header className={styles.topbar}>
         <div>
           <Clock />
-          <h1 className={styles.title}>Виробничі задачі</h1>
         </div>
 
         <div className={styles.controls}>
