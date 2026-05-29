@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { InstallPrompt } from "@/components/pwa/install-prompt";
+import { getFilialName } from "@/domain/filials";
 import { apiClient, useApiMutation, useApiQuery } from "@/hooks/use-api";
 import { formatCoverageParts } from "@/lib/format";
 import styles from "./production-kitchen-board.module.css";
@@ -110,7 +111,7 @@ function TaskCard({ task, onChanged, now }: { task: ProductionTask; onChanged: (
       <p className={styles.cardMeta}>
         SKU {task.lager_id}
         <span className={styles.sep}>•</span>
-        Філія {task.filial_id}
+        {getFilialName(task.filial_id)}
         <span className={styles.sep}>•</span>
         {task.history_date}
       </p>
@@ -319,7 +320,7 @@ export function ProductionKitchenBoard() {
               <option value="all">Усі філії</option>
               {branchOptions.map((id) => (
                 <option key={id} value={String(id)}>
-                  Філія {id}
+                  {getFilialName(id)}
                 </option>
               ))}
             </select>
