@@ -199,8 +199,9 @@ export function ProductionKitchenBoard() {
       : activeTasks.filter((task) => String(task.filial_id) === selectedBranch);
 
   return (
-    <main className={styles.shell}>
+    <>
       <InstallPrompt />
+      <main className={styles.shell}>
       <header className={styles.topbar}>
         <div>
           <p className={styles.eyebrow}>Kitchen tablet</p>
@@ -297,6 +298,7 @@ export function ProductionKitchenBoard() {
           </p>
         </div>
       )}
-    </main>
+      </main>
+    </>
   );
 }

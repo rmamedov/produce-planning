@@ -1,0 +1,19 @@
+# Caddy reverse-proxy config for the droplet (165.245.253.31).
+# The Next.js app runs on localhost:3000 (systemd service produce-planning).
+#
+# HTTPS is required for PWA installation on Android. Since the droplet has no
+# domain, we use a free nip.io hostname that resolves to the IP, which lets
+# Caddy obtain a real Let's Encrypt certificate automatically.
+#
+# Install: copy to /etc/caddy/Caddyfile, then `systemctl reload caddy`.
+
+# Plain-IP access over HTTP — keeps the legacy URL working for API integrations.
+http://165.245.253.31 {
+	reverse_proxy localhost:3000
+}
+
+# HTTPS via nip.io — required for PWA install on Android/iOS.
+165-245-253-31.nip.io {
+	encode gzip
+	reverse_proxy localhost:3000
+}
