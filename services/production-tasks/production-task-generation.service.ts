@@ -102,6 +102,7 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
         coveredHours: row.coveredHours,
         reason,
         lagerName,
+        departmentId: row.departmentId,
         operationalReadyAt
       }
     });
@@ -113,6 +114,7 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
     data: {
       sourceId: row.id,
       filialId: row.filialId,
+      departmentId: row.departmentId,
       lagerId: row.lagerId,
       lagerName,
       historyDate: row.historyDate,

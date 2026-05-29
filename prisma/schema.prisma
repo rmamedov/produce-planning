@@ -214,6 +214,7 @@ model ProductionTask {
   sourceId      String       @unique
   source        ProductionPlanPriority @relation(fields: [sourceId], references: [id], onDelete: Cascade)
   filialId      Int
+  departmentId  Int?
   lagerId       Int
   lagerName     String?
   historyDate   DateTime     @db.Date
@@ -231,6 +232,7 @@ model ProductionTask {
 
   @@index([filialId])
   @@index([filialId, historyDate])
+  @@index([departmentId])
   @@index([status])
   @@index([priority])
 }

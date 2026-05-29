@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 interface ListFilters {
   filialId?: number;
+  departmentId?: number;
   historyDate?: Date;
   status?: TaskStatus;
   priority?: TaskPriority;
@@ -15,6 +16,9 @@ export const productionTaskRepository = {
 
     if (filters.filialId) {
       where.filialId = filters.filialId;
+    }
+    if (filters.departmentId) {
+      where.departmentId = filters.departmentId;
     }
     if (filters.historyDate) {
       where.historyDate = filters.historyDate;

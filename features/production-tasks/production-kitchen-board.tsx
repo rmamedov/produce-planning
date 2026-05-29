@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { InstallPrompt } from "@/components/pwa/install-prompt";
+import { getDepartmentName } from "@/domain/departments";
 import { getFilialName } from "@/domain/filials";
 import { apiClient, useApiMutation, useApiQuery } from "@/hooks/use-api";
 import { formatCoverageParts } from "@/lib/format";
@@ -12,6 +13,8 @@ import styles from "./production-kitchen-board.module.css";
 interface ProductionTask {
   id: string;
   filial_id: number;
+  department_id: number | null;
+  department_name: string | null;
   lager_id: number;
   lager_name: string | null;
   history_date: string;
@@ -41,6 +44,7 @@ const PRIORITY_META: Record<ProductionTask["priority"], { key: PrioKey; label: s
 };
 
 const STORAGE_KEY = "kitchen.selectedBranch";
+const DEPARTMENT_STORAGE_KEY = "kitchen.selectedDepartment";
 
 function ChevronIcon() {
   return (
@@ -215,6 +219,7 @@ function Clock() {
 
 export function ProductionKitchenBoard() {
   const [selectedBranch, setSelectedBranch] = useState("all");
+  const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [now, setNow] = useState(() => Date.now());
 
   // Tick so the on-time / overdue status flips live without a refetch.
@@ -223,12 +228,13 @@ export function ProductionKitchenBoard() {
     return () => clearInterval(id);
   }, []);
 
-  // Restore the operator's branch choice for the session.
+  // Restore the operator's branch / department choice for the session.
   useEffect(() => {
-    const stored = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
-    if (stored) {
-      setSelectedBranch(stored);
-    }
+    if (typeof window === "undefined") return;
+    const branch = window.localStorage.getItem(STORAGE_KEY);
+    if (branch) setSelectedBranch(branch);
+    const department = window.localStorage.getItem(DEPARTMENT_STORAGE_KEY);
+    if (department) setSelectedDepartment(department);
   }, []);
 
   useEffect(() => {
@@ -236,6 +242,12 @@ export function ProductionKitchenBoard() {
       window.localStorage.setItem(STORAGE_KEY, selectedBranch);
     }
   }, [selectedBranch]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(DEPARTMENT_STORAGE_KEY, selectedDepartment);
+    }
+  }, [selectedDepartment]);
 
   const queryClient = useQueryClient();
   const query = useApiQuery<ProductionTasksResponse>(
@@ -288,16 +300,35 @@ export function ProductionKitchenBoard() {
     [activeTasks]
   );
 
+  const departmentOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          activeTasks
+            .map((task) => task.department_id)
+            .filter((id): id is number => id != null)
+        )
+      ).sort((a, b) => a - b),
+    [activeTasks]
+  );
+
   useEffect(() => {
     if (selectedBranch !== "all" && !branchOptions.some((id) => String(id) === selectedBranch)) {
       setSelectedBranch("all");
     }
   }, [selectedBranch, branchOptions]);
 
-  const filtered =
-    selectedBranch === "all"
-      ? activeTasks
-      : activeTasks.filter((task) => String(task.filial_id) === selectedBranch);
+  useEffect(() => {
+    if (selectedDepartment !== "all" && !departmentOptions.some((id) => String(id) === selectedDepartment)) {
+      setSelectedDepartment("all");
+    }
+  }, [selectedDepartment, departmentOptions]);
+
+  const filtered = activeTasks.filter(
+    (task) =>
+      (selectedBranch === "all" || String(task.filial_id) === selectedBranch) &&
+      (selectedDepartment === "all" || String(task.department_id) === selectedDepartment)
+  );
 
   // Sort by operational readiness deadline ascending — the soonest (and
   // already overdue) deadlines float to the top; tasks without one go last.
@@ -329,6 +360,26 @@ export function ProductionKitchenBoard() {
               {branchOptions.map((id) => (
                 <option key={id} value={String(id)}>
                   {getFilialName(id)}
+                </option>
+              ))}
+            </select>
+            <span className={styles.fieldChevron}>
+              <ChevronIcon />
+            </span>
+          </div>
+
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>Відділ</span>
+            <select
+              className={styles.fieldSelect}
+              aria-label="Відділ"
+              value={selectedDepartment}
+              onChange={(event) => setSelectedDepartment(event.target.value)}
+            >
+              <option value="all">Усі відділи</option>
+              {departmentOptions.map((id) => (
+                <option key={id} value={String(id)}>
+                  {getDepartmentName(id) ?? `Відділ ${id}`}
                 </option>
               ))}
             </select>

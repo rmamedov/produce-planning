@@ -108,7 +108,8 @@ export const productionTaskQuerySchema = z.object({
   filial_id: z.coerce.number().int().positive().optional(),
   history_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "history_date має бути у форматі YYYY-MM-DD").optional(),
   status: z.enum(["NEW", "IN_PROGRESS", "DONE", "CANCELLED"]).optional(),
-  priority: z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW"]).optional()
+  priority: z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW"]).optional(),
+  department_id: z.coerce.number().int().positive().optional()
 });
 
 export const productionTaskGenerateSchema = z.object({

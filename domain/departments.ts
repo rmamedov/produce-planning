@@ -3,7 +3,7 @@ export const DEPARTMENT_NAMES: Record<number, string> = {
   8: "М'ясний відділ",
   11: "Рибний відділ",
   13: "Кулінарія",
-  17: "Хлібобулочні вироби"
+  17: "Пекарня"
 };
 
 export function getDepartmentName(departmentId: number | null | undefined): string | null {

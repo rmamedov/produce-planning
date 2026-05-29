@@ -3,6 +3,7 @@ import type { TaskPriority, TaskStatus } from "@prisma/client";
 
 import { handleApiError, ok } from "@/api/http";
 import { productionTaskQuerySchema } from "@/api/schemas";
+import { getDepartmentName } from "@/domain/departments";
 import { prisma } from "@/lib/prisma";
 import { productionTaskRepository } from "@/repositories/production-task.repository";
 import { resolveLagerNames } from "@/services/silpo/silpo-product.service";
@@ -15,11 +16,13 @@ export async function GET(request: NextRequest) {
       filial_id: searchParams.get("filial_id") ?? undefined,
       history_date: searchParams.get("history_date") ?? undefined,
       status: searchParams.get("status") ?? undefined,
-      priority: searchParams.get("priority") ?? undefined
+      priority: searchParams.get("priority") ?? undefined,
+      department_id: searchParams.get("department_id") ?? undefined
     });
 
     const tasks = await productionTaskRepository.list({
       filialId: query.filial_id,
+      departmentId: query.department_id,
       historyDate: query.history_date ? new Date(query.history_date) : undefined,
       status: query.status as TaskStatus | undefined,
       priority: query.priority as TaskPriority | undefined
@@ -52,6 +55,8 @@ export async function GET(request: NextRequest) {
       tasks: tasks.map((task) => ({
         id: task.id,
         filial_id: task.filialId,
+        department_id: task.departmentId,
+        department_name: getDepartmentName(task.departmentId),
         lager_id: task.lagerId,
         lager_name: resolved.get(task.lagerId) ?? task.lagerName ?? null,
         history_date: task.historyDate.toISOString().split("T")[0],
