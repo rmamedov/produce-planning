@@ -454,6 +454,148 @@
   border-left-color: var(--yellow-400);
 }
 
+/* head right-side cluster: priority badge + kebab */
+.headActions {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* kebab (three-dots) menu */
+.kebabWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.menuBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+}
+.kebab {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: background var(--dur) var(--easing);
+}
+.kebab:hover {
+  background: var(--black-4);
+  color: var(--fg-1);
+}
+.kebabMenu {
+  position: absolute;
+  top: 32px;
+  right: 0;
+  z-index: 20;
+  min-width: 210px;
+  background: var(--surface);
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  padding: 6px;
+}
+.kebabItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--red-700);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.kebabItem:hover {
+  background: var(--red-100);
+}
+
+/* "Неможливо виготовити" reason modal */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(32, 33, 36, 0.4);
+}
+.modal {
+  width: 100%;
+  max-width: 460px;
+  background: var(--surface);
+  border-radius: var(--r-20);
+  padding: 24px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
+}
+.modalTitle {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--fg-1);
+  margin: 0 0 4px;
+}
+.modalSub {
+  font-size: 13px;
+  color: var(--fg-3);
+  margin: 0 0 18px;
+}
+.reasonList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.reasonBtn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-12);
+  background: var(--surface);
+  color: var(--fg-1);
+  font-family: var(--font-text);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur) var(--easing), background var(--dur) var(--easing);
+}
+.reasonBtn:hover {
+  border-color: var(--red-400);
+  background: var(--red-100);
+  color: var(--red-700);
+}
+.reasonBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.modalCancel {
+  margin-top: 16px;
+  width: 100%;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--black-4);
+  color: var(--fg-2);
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 11px 18px;
+  cursor: pointer;
+}
+
 /* primary CTA */
 .btnStart {
   display: inline-flex;

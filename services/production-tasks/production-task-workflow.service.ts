@@ -43,7 +43,7 @@ export const productionTaskWorkflowService = {
     return updated;
   },
 
-  async cancel(id: string) {
+  async cancel(id: string, cancelReason?: string | null) {
     const task = await requireTask(id);
 
     if (task.status === TaskStatus.DONE) {
@@ -51,7 +51,8 @@ export const productionTaskWorkflowService = {
     }
 
     const updated = await productionTaskRepository.update(id, {
-      status: TaskStatus.CANCELLED
+      status: TaskStatus.CANCELLED,
+      cancelReason: cancelReason ?? null
     });
     productionTaskEvents.publish("cancelled");
     return updated;

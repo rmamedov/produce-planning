@@ -225,6 +225,7 @@ model ProductionTask {
   quantity      Float
   coveredHours  Float
   reason        String
+  cancelReason  String?
   operationalReadyAt DateTime?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt

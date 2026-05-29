@@ -47,6 +47,32 @@ const PRIORITY_META: Record<ProductionTask["priority"], { key: PrioKey; label: s
 const STORAGE_KEY = "kitchen.selectedBranch";
 const DEPARTMENT_STORAGE_KEY = "kitchen.selectedDepartment";
 
+const CANNOT_PRODUCE_REASONS = [
+  "Недостатньо сировини",
+  "Немає електроенергії",
+  "Немає потрібного обладнання",
+  "Не вистачає персоналу"
+];
+
+function KebabIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="12" cy="5" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="12" cy="19" r="1.8" />
+    </svg>
+  );
+}
+
+function BanIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
+    </svg>
+  );
+}
+
 function ChevronIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -92,7 +118,20 @@ function TaskCard({ task, onChanged, now }: { task: ProductionTask; onChanged: (
     onSuccess: onChanged
   });
 
-  const busy = start.isPending || complete.isPending;
+  const cancel = useApiMutation<unknown, string>({
+    mutationFn: (reason: string) =>
+      apiClient(`/api/production-tasks/${task.id}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ reason })
+      }),
+    successMessage: "Задачу позначено як неможливу до виготовлення",
+    onSuccess: onChanged
+  });
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [reasonOpen, setReasonOpen] = useState(false);
+
+  const busy = start.isPending || complete.isPending || cancel.isPending;
   const inProgress = task.status === "IN_PROGRESS";
 
   const noteClass = [styles.note, styles[`note${meta.label}` as keyof typeof styles] as string]
@@ -106,11 +145,41 @@ function TaskCard({ task, onChanged, now }: { task: ProductionTask; onChanged: (
     <article className={styles.card}>
       <div className={styles.cardHead}>
         <h2 className={styles.cardTitle}>{task.lager_name ?? `Lager ${task.lager_id}`}</h2>
-        {inProgress ? (
-          <span className={styles.progressTag}>В роботі</span>
-        ) : (
-          <span className={prioClass}>{meta.label}</span>
-        )}
+        <div className={styles.headActions}>
+          {inProgress ? (
+            <span className={styles.progressTag}>В роботі</span>
+          ) : (
+            <span className={prioClass}>{meta.label}</span>
+          )}
+          <div className={styles.kebabWrap}>
+            <button
+              type="button"
+              className={styles.kebab}
+              aria-label="Дії"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <KebabIcon />
+            </button>
+            {menuOpen ? (
+              <>
+                <div className={styles.menuBackdrop} onClick={() => setMenuOpen(false)} />
+                <div className={styles.kebabMenu}>
+                  <button
+                    type="button"
+                    className={styles.kebabItem}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setReasonOpen(true);
+                    }}
+                  >
+                    <BanIcon />
+                    Неможливо виготовити
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       <p className={styles.cardMeta}>
@@ -176,6 +245,35 @@ function TaskCard({ task, onChanged, now }: { task: ProductionTask; onChanged: (
           Почати
         </button>
       )}
+
+      {reasonOpen ? (
+        <div className={styles.modalOverlay} onClick={() => setReasonOpen(false)}>
+          <div className={styles.modal} onClick={(event) => event.stopPropagation()}>
+            <p className={styles.modalTitle}>Вкажіть причину</p>
+            <p className={styles.modalSub}>{task.lager_name ?? `Lager ${task.lager_id}`}</p>
+            <div className={styles.reasonList}>
+              {CANNOT_PRODUCE_REASONS.map((reason) => (
+                <button
+                  key={reason}
+                  type="button"
+                  className={styles.reasonBtn}
+                  disabled={busy}
+                  onClick={() =>
+                    cancel.mutate(reason, {
+                      onSuccess: () => setReasonOpen(false)
+                    })
+                  }
+                >
+                  {reason}
+                </button>
+              ))}
+            </div>
+            <button type="button" className={styles.modalCancel} onClick={() => setReasonOpen(false)}>
+              Скасувати
+            </button>
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }
