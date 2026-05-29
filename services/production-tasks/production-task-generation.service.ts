@@ -86,6 +86,10 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
   const lagerName =
     row.lagerFullName ?? (await resolveLagerName(row.lagerId)) ?? existing?.lagerName ?? null;
 
+  // Operational readiness deadline = forecast receipt time + covered_hours.
+  // The plan row's updatedAt marks when this forecast version was received.
+  const operationalReadyAt = new Date(row.updatedAt.getTime() + row.coveredHours * 3_600_000);
+
   if (existing) {
     await prisma.productionTask.update({
       where: { id: existing.id },
@@ -96,7 +100,8 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
         quantity: row.recommendedToProduce,
         coveredHours: row.coveredHours,
         reason,
-        lagerName
+        lagerName,
+        operationalReadyAt
       }
     });
     summary.updated += 1;
@@ -115,6 +120,7 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
       priorityLevel: row.priority,
       quantity: row.recommendedToProduce,
       coveredHours: row.coveredHours,
+      operationalReadyAt,
       reason
     }
   });

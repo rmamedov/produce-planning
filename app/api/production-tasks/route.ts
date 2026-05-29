@@ -61,6 +61,8 @@ export async function GET(request: NextRequest) {
         quantity: task.quantity,
         covered_hours: task.coveredHours,
         reason: task.reason,
+        operational_ready_at: task.operationalReadyAt?.toISOString() ?? null,
+        is_overdue: task.operationalReadyAt ? task.operationalReadyAt.getTime() < Date.now() : false,
         created_at: task.createdAt.toISOString(),
         started_at: task.startedAt?.toISOString() ?? null,
         completed_at: task.completedAt?.toISOString() ?? null

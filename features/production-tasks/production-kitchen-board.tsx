@@ -19,6 +19,8 @@ interface ProductionTask {
   quantity: number;
   covered_hours: number;
   reason: string;
+  operational_ready_at: string | null;
+  is_overdue: boolean;
 }
 
 interface ProductionTasksResponse {
@@ -62,9 +64,14 @@ function CheckIcon() {
   );
 }
 
-function TaskCard({ task, onChanged }: { task: ProductionTask; onChanged: () => void }) {
+function TaskCard({ task, onChanged, now }: { task: ProductionTask; onChanged: () => void; now: number }) {
   const meta = PRIORITY_META[task.priority];
   const coverage = formatCoverageParts(task.covered_hours);
+
+  // Operational readiness deadline (forecast receipt + covered_hours) and
+  // whether the task is still on time relative to the live clock.
+  const readyAt = task.operational_ready_at ? new Date(task.operational_ready_at) : null;
+  const overdue = readyAt ? readyAt.getTime() < now : false;
 
   const start = useApiMutation({
     mutationFn: () => apiClient(`/api/production-tasks/${task.id}/start`, { method: "POST" }),
@@ -121,6 +128,17 @@ function TaskCard({ task, onChanged }: { task: ProductionTask; onChanged: () => 
         </div>
       </div>
 
+      {readyAt ? (
+        <div className={styles.readiness}>
+          <span className={styles.readinessInfo}>
+            Готовність до <span className={styles.readinessTime}>{formatReadyAt(readyAt)}</span>
+          </span>
+          <span className={overdue ? styles.statusOverdue : styles.statusOnTime}>
+            {overdue ? "Прострочено" : "Вчасно"}
+          </span>
+        </div>
+      ) : null}
+
       <p className={noteClass}>{task.reason}</p>
 
       {inProgress ? (
@@ -156,6 +174,17 @@ function pad2(value: number) {
   return String(value).padStart(2, "0");
 }
 
+// "HH:mm" for today, "dd.MM HH:mm" otherwise.
+function formatReadyAt(date: Date) {
+  const hhmm = `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+  const today = new Date();
+  const sameDay =
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate();
+  return sameDay ? hhmm : `${pad2(date.getDate())}.${pad2(date.getMonth() + 1)} ${hhmm}`;
+}
+
 function Clock() {
   // System time, updated every second on the client. Starts null to avoid an
   // SSR/client hydration mismatch, then fills in on mount.
@@ -184,6 +213,13 @@ function Clock() {
 
 export function ProductionKitchenBoard() {
   const [selectedBranch, setSelectedBranch] = useState("all");
+  const [now, setNow] = useState(() => Date.now());
+
+  // Tick so the on-time / overdue status flips live without a refetch.
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 10000);
+    return () => clearInterval(id);
+  }, []);
 
   // Restore the operator's branch choice for the session.
   useEffect(() => {
@@ -306,7 +342,7 @@ export function ProductionKitchenBoard() {
       ) : tasks.length ? (
         <section className={styles.grid} aria-label="Список виробничих задач">
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} onChanged={() => query.refetch()} />
+            <TaskCard key={task.id} task={task} now={now} onChanged={() => query.refetch()} />
           ))}
         </section>
       ) : (
