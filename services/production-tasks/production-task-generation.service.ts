@@ -2,6 +2,7 @@ import type { ProductionPlanPriority } from "@prisma/client";
 import { TaskPriority, TaskStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { productionTaskEvents } from "@/services/production-tasks/production-task-events";
 import { resolveLagerName } from "@/services/silpo/silpo-product.service";
 
 interface PriorityMapping {
@@ -158,6 +159,11 @@ export const productionTaskGenerationService = {
 
     for (const row of rows) {
       await generateForRow(row, summary);
+    }
+
+    // Notify connected boards if anything actually changed.
+    if (summary.created || summary.updated || summary.cancelled) {
+      productionTaskEvents.publish("generated");
     }
 
     return summary;

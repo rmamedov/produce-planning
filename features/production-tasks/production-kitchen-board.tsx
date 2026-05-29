@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { apiClient, useApiMutation, useApiQuery } from "@/hooks/use-api";
@@ -235,11 +236,44 @@ export function ProductionKitchenBoard() {
     }
   }, [selectedBranch]);
 
+  const queryClient = useQueryClient();
   const query = useApiQuery<ProductionTasksResponse>(
     ["production-tasks", "kitchen"],
     "/api/production-tasks",
-    { refetchInterval: 15000 }
+    // Polling is only a fallback; live updates arrive instantly over SSE below.
+    { refetchInterval: 20000 }
   );
+
+  // Real-time updates: subscribe to the server-sent event stream and refresh
+  // the moment a forecast is ingested or any task changes status. Reconnects
+  // automatically (EventSource), and a refresh on reconnect catches missed events.
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof EventSource === "undefined") {
+      return undefined;
+    }
+
+    const source = new EventSource("/api/production-tasks/stream");
+    let hasOpened = false;
+
+    const refresh = () => {
+      void queryClient.invalidateQueries({ queryKey: ["production-tasks"] });
+    };
+
+    const handleUpdate = () => refresh();
+    const handleOpen = () => {
+      if (hasOpened) refresh();
+      hasOpened = true;
+    };
+
+    source.addEventListener("production-tasks-updated", handleUpdate);
+    source.addEventListener("open", handleOpen);
+
+    return () => {
+      source.removeEventListener("production-tasks-updated", handleUpdate);
+      source.removeEventListener("open", handleOpen);
+      source.close();
+    };
+  }, [queryClient]);
 
   const allTasks = query.data?.tasks ?? [];
 
