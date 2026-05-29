@@ -2,6 +2,7 @@ import type { ProductionPlanPriority } from "@prisma/client";
 import { TaskPriority, TaskStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import { roundProduceQuantity } from "@/lib/produce-quantity";
 import { productionTaskEvents } from "@/services/production-tasks/production-task-events";
 import { resolveLagerName } from "@/services/silpo/silpo-product.service";
 
@@ -91,6 +92,9 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
   // The plan row's updatedAt marks when this forecast version was received.
   const operationalReadyAt = new Date(row.updatedAt.getTime() + row.coveredHours * 3_600_000);
 
+  // We ask the kitchen to produce in 0.5 kg steps (min 0.5 kg).
+  const quantity = roundProduceQuantity(row.recommendedToProduce);
+
   if (existing) {
     await prisma.productionTask.update({
       where: { id: existing.id },
@@ -98,7 +102,7 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
         status: TaskStatus.NEW,
         priority,
         priorityLevel: row.priority,
-        quantity: row.recommendedToProduce,
+        quantity,
         coveredHours: row.coveredHours,
         reason,
         lagerName,
@@ -121,7 +125,7 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
       status: TaskStatus.NEW,
       priority,
       priorityLevel: row.priority,
-      quantity: row.recommendedToProduce,
+      quantity,
       coveredHours: row.coveredHours,
       operationalReadyAt,
       reason
