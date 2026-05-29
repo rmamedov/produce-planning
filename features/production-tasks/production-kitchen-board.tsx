@@ -204,11 +204,7 @@ export function ProductionKitchenBoard() {
       <main className={styles.shell}>
       <header className={styles.topbar}>
         <div>
-          <p className={styles.eyebrow}>Kitchen tablet</p>
           <h1 className={styles.title}>Виробничі задачі</h1>
-          <p className={styles.subtitle}>
-            Компактний режим для планшета. Картки показують тільки потрібну інформацію і допустимі кнопки.
-          </p>
         </div>
 
         <div className={styles.controls}>
