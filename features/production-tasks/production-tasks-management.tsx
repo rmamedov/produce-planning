@@ -20,6 +20,7 @@ interface ProductionTask {
   filial_id: number;
   lager_id: number;
   lager_name: string | null;
+  unit: string | null;
   history_date: string;
   status: "NEW" | "IN_PROGRESS" | "DONE" | "CANCELLED";
   priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
@@ -102,7 +103,11 @@ const columns: ColumnDef<ProductionTask>[] = [
   {
     accessorKey: "quantity",
     header: "До виробництва",
-    cell: ({ row }) => <span className="font-semibold">{row.original.quantity}</span>
+    cell: ({ row }) => (
+      <span className="font-semibold">
+        {row.original.quantity} {row.original.unit ?? "кг"}
+      </span>
+    )
   },
   {
     accessorKey: "covered_hours",

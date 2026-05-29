@@ -4,7 +4,7 @@ import { TaskPriority, TaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { roundProduceQuantity } from "@/lib/produce-quantity";
 import { productionTaskEvents } from "@/services/production-tasks/production-task-events";
-import { resolveLagerName } from "@/services/silpo/silpo-product.service";
+import { resolveLagerInfo } from "@/services/silpo/silpo-product.service";
 
 interface PriorityMapping {
   priority: TaskPriority;
@@ -83,17 +83,19 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
     return;
   }
 
-  // Prefer the product full name supplied by the plan (V2 lagerfullname).
-  // Fall back to a Silpo lookup (lager_id = SKU), then to the stored name.
-  const lagerName =
-    row.lagerFullName ?? (await resolveLagerName(row.lagerId)) ?? existing?.lagerName ?? null;
+  // Resolve product name + unit of measure from Silpo (lager_id = SKU).
+  // Prefer the plan-supplied full name (V2 lagerfullname); reuse stored values
+  // when Silpo is unavailable this run.
+  const silpo = await resolveLagerInfo(row.lagerId);
+  const lagerName = row.lagerFullName ?? silpo.name ?? existing?.lagerName ?? null;
+  const lagerUnit = silpo.unit ?? existing?.lagerUnit ?? null;
 
   // Operational readiness deadline = forecast receipt time + covered_hours.
   // The plan row's updatedAt marks when this forecast version was received.
   const operationalReadyAt = new Date(row.updatedAt.getTime() + row.coveredHours * 3_600_000);
 
-  // We ask the kitchen to produce in 0.5 kg steps (min 0.5 kg).
-  const quantity = roundProduceQuantity(row.recommendedToProduce);
+  // Round to a producible amount: whole pieces for "шт", 0.5 kg steps for "кг".
+  const quantity = roundProduceQuantity(row.recommendedToProduce, lagerUnit);
 
   if (existing) {
     await prisma.productionTask.update({
@@ -106,6 +108,7 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
         coveredHours: row.coveredHours,
         reason,
         lagerName,
+        lagerUnit,
         departmentId: row.departmentId,
         operationalReadyAt
       }
@@ -121,6 +124,7 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
       departmentId: row.departmentId,
       lagerId: row.lagerId,
       lagerName,
+      lagerUnit,
       historyDate: row.historyDate,
       status: TaskStatus.NEW,
       priority,

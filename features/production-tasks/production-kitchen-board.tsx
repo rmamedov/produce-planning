@@ -17,6 +17,7 @@ interface ProductionTask {
   department_name: string | null;
   lager_id: number;
   lager_name: string | null;
+  unit: string | null;
   history_date: string;
   status: "NEW" | "IN_PROGRESS" | "DONE" | "CANCELLED";
   priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
@@ -123,7 +124,10 @@ function TaskCard({ task, onChanged, now }: { task: ProductionTask; onChanged: (
       <div className={styles.metrics}>
         <div className={styles.metric}>
           <span className={styles.metricLabel}>Виробити</span>
-          <span className={styles.metricValue}>{task.quantity}</span>
+          <span className={styles.metricValue}>
+            {task.quantity}
+            <span className={styles.unit}>{task.unit ?? "кг"}</span>
+          </span>
         </div>
         <div className={styles.metric}>
           <span className={styles.metricLabel}>Покриття</span>

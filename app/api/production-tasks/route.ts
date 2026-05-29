@@ -6,7 +6,7 @@ import { productionTaskQuerySchema } from "@/api/schemas";
 import { getDepartmentName } from "@/domain/departments";
 import { prisma } from "@/lib/prisma";
 import { productionTaskRepository } from "@/repositories/production-task.repository";
-import { resolveLagerNames } from "@/services/silpo/silpo-product.service";
+import { resolveLagerInfos } from "@/services/silpo/silpo-product.service";
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,21 +28,26 @@ export async function GET(request: NextRequest) {
       priority: query.priority as TaskPriority | undefined
     });
 
-    // Lazily backfill product names for tasks created before names were stored
-    // (or when Silpo was unavailable at generation time).
-    const missing = tasks.filter((task) => !task.lagerName);
-    const resolved = new Map(tasks.map((task) => [task.lagerId, task.lagerName] as const));
+    // Lazily backfill product name + unit for tasks created before they were
+    // stored (or when Silpo was unavailable at generation time).
+    const missing = tasks.filter((task) => !task.lagerName || !task.lagerUnit);
+    const resolvedName = new Map(tasks.map((task) => [task.lagerId, task.lagerName] as const));
+    const resolvedUnit = new Map(tasks.map((task) => [task.lagerId, task.lagerUnit] as const));
 
     if (missing.length) {
-      const names = await resolveLagerNames(missing.map((task) => task.lagerId));
+      const infos = await resolveLagerInfos(missing.map((task) => task.lagerId));
       await Promise.all(
         missing.map(async (task) => {
-          const name = names.get(task.lagerId) ?? null;
-          if (name) {
-            resolved.set(task.lagerId, name);
+          const info = infos.get(task.lagerId);
+          if (!info) return;
+          const name = info.name ?? task.lagerName ?? null;
+          const unit = info.unit ?? task.lagerUnit ?? null;
+          if (name) resolvedName.set(task.lagerId, name);
+          if (unit) resolvedUnit.set(task.lagerId, unit);
+          if ((info.name && info.name !== task.lagerName) || (info.unit && info.unit !== task.lagerUnit)) {
             await prisma.productionTask.update({
               where: { id: task.id },
-              data: { lagerName: name }
+              data: { lagerName: name, lagerUnit: unit }
             });
           }
         })
@@ -58,7 +63,8 @@ export async function GET(request: NextRequest) {
         department_id: task.departmentId,
         department_name: getDepartmentName(task.departmentId),
         lager_id: task.lagerId,
-        lager_name: resolved.get(task.lagerId) ?? task.lagerName ?? null,
+        lager_name: resolvedName.get(task.lagerId) ?? task.lagerName ?? null,
+        unit: resolvedUnit.get(task.lagerId) ?? task.lagerUnit ?? null,
         history_date: task.historyDate.toISOString().split("T")[0],
         status: task.status,
         priority: task.priority,

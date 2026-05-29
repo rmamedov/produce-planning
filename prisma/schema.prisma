@@ -217,6 +217,7 @@ model ProductionTask {
   departmentId  Int?
   lagerId       Int
   lagerName     String?
+  lagerUnit     String?
   historyDate   DateTime     @db.Date
   status        TaskStatus   @default(NEW)
   priority      TaskPriority
