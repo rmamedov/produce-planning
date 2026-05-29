@@ -152,6 +152,36 @@ function TaskCard({ task, onChanged }: { task: ProductionTask; onChanged: () => 
   );
 }
 
+function pad2(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function Clock() {
+  // System time, updated every second on the client. Starts null to avoid an
+  // SSR/client hydration mismatch, then fills in on mount.
+  const [now, setNow] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setNow(new Date());
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!now) {
+    return <div className={styles.clock} aria-hidden />;
+  }
+
+  const hhmm = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+  const ss = pad2(now.getSeconds());
+
+  return (
+    <div className={styles.clock} role="timer" aria-label={`${hhmm}:${ss}`}>
+      <span className={styles.clockMain}>{hhmm}</span>
+      <span className={styles.clockSeconds}>{ss}</span>
+    </div>
+  );
+}
+
 export function ProductionKitchenBoard() {
   const [selectedBranch, setSelectedBranch] = useState("all");
 
@@ -204,6 +234,7 @@ export function ProductionKitchenBoard() {
       <main className={styles.shell}>
       <header className={styles.topbar}>
         <div>
+          <Clock />
           <h1 className={styles.title}>Виробничі задачі</h1>
         </div>
 

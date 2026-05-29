@@ -96,6 +96,30 @@
   color: var(--orange-500);
   margin: 0 0 10px;
 }
+
+/* digital clock — top-left, 24h, big HH:MM + small seconds */
+.clock {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  color: var(--fg-1);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  min-height: 40px;
+}
+.clockMain {
+  font-size: 40px;
+  font-weight: 700;
+}
+.clockSeconds {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fg-3);
+  margin-left: 3px;
+}
 .title {
   font-family: var(--font-display);
   font-weight: 700;
