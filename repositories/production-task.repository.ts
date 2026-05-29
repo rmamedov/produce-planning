@@ -29,7 +29,9 @@ export const productionTaskRepository = {
     return prisma.productionTask.findMany({
       where,
       orderBy: [
-        { historyDate: "asc" },
+        // Most time-critical first: soonest (and overdue) operational
+        // readiness deadline on top; tasks without a deadline go last.
+        { operationalReadyAt: { sort: "asc", nulls: "last" } },
         { priorityLevel: "asc" },
         { coveredHours: "asc" }
       ]

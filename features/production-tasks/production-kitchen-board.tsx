@@ -294,10 +294,18 @@ export function ProductionKitchenBoard() {
     }
   }, [selectedBranch, branchOptions]);
 
-  const tasks =
+  const filtered =
     selectedBranch === "all"
       ? activeTasks
       : activeTasks.filter((task) => String(task.filial_id) === selectedBranch);
+
+  // Sort by operational readiness deadline ascending — the soonest (and
+  // already overdue) deadlines float to the top; tasks without one go last.
+  const tasks = useMemo(() => {
+    const deadline = (task: ProductionTask) =>
+      task.operational_ready_at ? new Date(task.operational_ready_at).getTime() : Number.POSITIVE_INFINITY;
+    return [...filtered].sort((a, b) => deadline(a) - deadline(b));
+  }, [filtered]);
 
   return (
     <>
