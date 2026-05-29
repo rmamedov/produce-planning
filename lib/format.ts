@@ -27,7 +27,8 @@ export function formatCoverageParts(hours: number): { value: string; unit: strin
     return { value: String(Math.round(hours * 60)), unit: "хв" };
   }
 
-  return { value: String(hours), unit: "год" };
+  // Round to 1 decimal so live-computed values stay readable.
+  return { value: String(Math.round(hours * 10) / 10), unit: "год" };
 }
 
 export function formatCoverage(hours: number): string {

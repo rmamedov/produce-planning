@@ -109,6 +109,7 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
         reason,
         lagerName,
         lagerUnit,
+        snapshotHour: row.snapshotHour,
         departmentId: row.departmentId,
         operationalReadyAt
       }
@@ -125,6 +126,7 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
       lagerId: row.lagerId,
       lagerName,
       lagerUnit,
+      snapshotHour: row.snapshotHour,
       historyDate: row.historyDate,
       status: TaskStatus.NEW,
       priority,

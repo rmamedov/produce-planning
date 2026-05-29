@@ -18,6 +18,7 @@ interface ProductionTask {
   lager_id: number;
   lager_name: string | null;
   unit: string | null;
+  snapshot_hour: number | null;
   history_date: string;
   status: "NEW" | "IN_PROGRESS" | "DONE" | "CANCELLED";
   priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
@@ -99,7 +100,17 @@ function CheckIcon() {
 
 function TaskCard({ task, onChanged, now }: { task: ProductionTask; onChanged: () => void; now: number }) {
   const meta = PRIORITY_META[task.priority];
-  const coverage = formatCoverageParts(task.covered_hours);
+
+  // Live remaining coverage:
+  //   max(0, covered_hours + snapshot_hour − current_hour_float)
+  // i.e. coverage left counting down from the snapshot moment.
+  const nowDate = new Date(now);
+  const currentHourFloat = nowDate.getHours() + nowDate.getMinutes() / 60 + nowDate.getSeconds() / 3600;
+  const coverageHours =
+    task.snapshot_hour != null
+      ? Math.max(0, task.covered_hours + task.snapshot_hour - currentHourFloat)
+      : task.covered_hours;
+  const coverage = formatCoverageParts(coverageHours);
 
   // Operational readiness deadline (forecast receipt + covered_hours) and
   // whether the task is still on time relative to the live clock.

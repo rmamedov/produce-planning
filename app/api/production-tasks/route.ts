@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
         lager_id: task.lagerId,
         lager_name: resolvedName.get(task.lagerId) ?? task.lagerName ?? null,
         unit: resolvedUnit.get(task.lagerId) ?? task.lagerUnit ?? null,
+        snapshot_hour: task.snapshotHour,
         history_date: task.historyDate.toISOString().split("T")[0],
         status: task.status,
         priority: task.priority,
