@@ -184,17 +184,19 @@ model Settings {
 model ProductionPlanPriority {
   id                    String   @id @default(cuid())
   filialId              Int
+  departmentId          Int?
   historyDate           DateTime @db.Date
   snapshotHour          Int?
   lagerId               Int
+  lagerFullName         String?
   priority              Int
   coveredHours          Float
   currentStockQty       Float
   demandTillDayEnd      Float
   demandWholeDay        Float
   recommendedToProduce  Float
-  salesQty              Float
-  producedQty           Float
+  salesQty              Float?
+  producedQty           Float?
   demandBeforeQty       Float
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -203,6 +205,7 @@ model ProductionPlanPriority {
   @@unique([filialId, historyDate, lagerId])
   @@index([filialId])
   @@index([filialId, historyDate])
+  @@index([departmentId])
   @@index([priority])
 }
 

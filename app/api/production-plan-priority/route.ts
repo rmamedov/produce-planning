@@ -5,6 +5,7 @@ import {
   productionPlanPriorityIngestSchema,
   productionPlanPriorityQuerySchema
 } from "@/api/schemas";
+import { getDepartmentName } from "@/domain/departments";
 import { productionPlanPriorityRepository } from "@/repositories/production-plan-priority.repository";
 import { productionTaskGenerationService } from "@/services/production-tasks/production-task-generation.service";
 
@@ -17,17 +18,19 @@ export async function POST(request: Request) {
     const items = body.dates.flatMap((dateEntry) =>
       dateEntry.items.map((item) => ({
         filialId: body.filial_id,
+        departmentId: body.department_id ?? null,
         historyDate: new Date(dateEntry.history_date),
         snapshotHour: dateEntry.snapshot_hour,
         lagerId: item.lager_id,
+        lagerFullName: item.lagerfullname ?? null,
         priority: item.priority,
         coveredHours: item.covered_hours,
         currentStockQty: item.current_stock_qty,
         demandTillDayEnd: item.demand_till_day_end,
         demandWholeDay: item.demand_whole_day,
         recommendedToProduce: item.recommended_to_produce,
-        salesQty: item.sales_qty,
-        producedQty: item.produced_qty,
+        salesQty: item.sales_qty ?? null,
+        producedQty: item.produced_qty ?? null,
         demandBeforeQty: item.demand_before_qty
       }))
     );
@@ -60,14 +63,16 @@ export async function GET(request: NextRequest) {
       filial_id: filialIdParam,
       history_date: searchParams.get("history_date") ?? undefined,
       priority: searchParams.get("priority") ?? undefined,
-      lager_id: searchParams.get("lager_id") ?? undefined
+      lager_id: searchParams.get("lager_id") ?? undefined,
+      department_id: searchParams.get("department_id") ?? undefined
     });
 
     const rows = await productionPlanPriorityRepository.list({
       filialId: query.filial_id,
       historyDate: query.history_date ? new Date(query.history_date) : undefined,
       priority: query.priority,
-      lagerId: query.lager_id
+      lagerId: query.lager_id,
+      departmentId: query.department_id
     });
 
     if (rows.length === 0) {
@@ -82,14 +87,17 @@ export async function GET(request: NextRequest) {
       snapshot_hour: number | null;
       items: Array<{
         lager_id: number;
+        lagerfullname: string | null;
+        department_id: number | null;
+        department_name: string | null;
         priority: number;
         covered_hours: number;
         current_stock_qty: number;
         demand_till_day_end: number;
         demand_whole_day: number;
         recommended_to_produce: number;
-        sales_qty: number;
-        produced_qty: number;
+        sales_qty: number | null;
+        produced_qty: number | null;
         demand_before_qty: number;
       }>;
     }>();
@@ -107,6 +115,9 @@ export async function GET(request: NextRequest) {
 
       grouped.get(dateKey)!.items.push({
         lager_id: row.lagerId,
+        lagerfullname: row.lagerFullName,
+        department_id: row.departmentId,
+        department_name: getDepartmentName(row.departmentId),
         priority: row.priority,
         covered_hours: row.coveredHours,
         current_stock_qty: row.currentStockQty,

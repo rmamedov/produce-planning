@@ -589,10 +589,11 @@
   <!-- Sidebar -->
   <nav class="sidebar">
     <div class="sidebar-logo">Production Plan API</div>
-    <span class="sidebar-version">v1.0</span>
+    <span class="sidebar-version">v2.0</span>
 
     <div class="sidebar-section">Overview</div>
     <a href="#overview">Introduction</a>
+    <a href="#whats-new">What's new in V2</a>
     <a href="#base-url">Base URL</a>
     <a href="#data-model">Data Model</a>
 
@@ -607,6 +608,7 @@
     <div class="sidebar-section">Reference</div>
     <a href="#schema-response">Response Schema</a>
     <a href="#priority-levels">Priority Levels</a>
+    <a href="#departments">Departments</a>
     <a href="#errors">Error Codes</a>
     <a href="#notes">Notes</a>
 
@@ -634,8 +636,30 @@
 
     <hr>
 
+    <!-- What's new in V2 -->
+    <section class="section section-anchor" id="whats-new">
+      <h2>What's new in V2</h2>
+      <p>All V2 changes are <strong>backward compatible</strong> — new fields are optional or nullable.</p>
+      <div class="callout callout-info">
+        <span class="callout-icon">&#x2728;</span>
+        <p>
+          <strong>1.</strong> New optional <code>lagerfullname</code> on each item (product full name).<br>
+          <strong>2.</strong> <code>sales_qty</code> and <code>produced_qty</code> are now optional and may be <code>null</code>.<br>
+          <strong>3.</strong> New <code>department_id</code> at the POST body root + as a GET filter.<br>
+          <strong>4.</strong> GET responses now include <code>lagerfullname</code>, <code>department_id</code> and <code>department_name</code>.
+        </p>
+      </div>
+      <div class="callout callout-warn">
+        <span class="callout-icon">&#x1f517;</span>
+        <p>The upsert key is unchanged: <code>filial_id</code> + <code>history_date</code> + <code>lager_id</code>.
+          <code>department_id</code> is stored per item but is not part of the key (exactly one department per lager).</p>
+      </div>
+    </section>
+
+    <hr>
+
     <!-- Data Model -->
-    <section class="section" id="data-model">
+    <section class="section section-anchor" id="data-model">
       <h2>Data Model</h2>
       <p>Data is stored flat in the database with a unique constraint on
         <code>filial_id</code> + <code>history_date</code> + <code>lager_id</code>.
@@ -648,17 +672,19 @@
           </thead>
           <tbody>
             <tr><td><code>filial_id</code></td><td><span class="type-tag">integer</span></td><td>Delivery filial identifier</td></tr>
+            <tr><td><code>department_id</code></td><td><span class="type-tag">integer|null</span></td><td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2</span> Department identifier (see Departments)</td></tr>
             <tr><td><code>history_date</code></td><td><span class="type-tag">date</span></td><td>Date of the assessment (YYYY-MM-DD)</td></tr>
             <tr><td><code>snapshot_hour</code></td><td><span class="type-tag">integer|null</span></td><td>Hour of last stock snapshot (0/null for tomorrow)</td></tr>
             <tr><td><code>lager_id</code></td><td><span class="type-tag">integer</span></td><td>Product (lager) identifier</td></tr>
+            <tr><td><code>lagerfullname</code></td><td><span class="type-tag">string|null</span></td><td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2</span> Product full name (from dim_lagers)</td></tr>
             <tr><td><code>priority</code></td><td><span class="type-tag">integer</span></td><td>Urgency level: 1-4</td></tr>
             <tr><td><code>covered_hours</code></td><td><span class="type-tag">number</span></td><td>Hours current stock can sustain demand</td></tr>
             <tr><td><code>current_stock_qty</code></td><td><span class="type-tag">number</span></td><td>DAMS stock at last known hour</td></tr>
             <tr><td><code>demand_till_day_end</code></td><td><span class="type-tag">number</span></td><td>Forecasted demand from snapshot hour till end of day</td></tr>
             <tr><td><code>demand_whole_day</code></td><td><span class="type-tag">number</span></td><td>Total forecasted demand for the entire day</td></tr>
             <tr><td><code>recommended_to_produce</code></td><td><span class="type-tag">number</span></td><td>Quantity to produce to cover till day end</td></tr>
-            <tr><td><code>sales_qty</code></td><td><span class="type-tag">number</span></td><td>Actual sales in past hours</td></tr>
-            <tr><td><code>produced_qty</code></td><td><span class="type-tag">number</span></td><td>Quantity received via receipts in past hours</td></tr>
+            <tr><td><code>sales_qty</code></td><td><span class="type-tag">number|null</span></td><td>Actual sales in past hours (nullable in v2)</td></tr>
+            <tr><td><code>produced_qty</code></td><td><span class="type-tag">number|null</span></td><td>Quantity received via receipts in past hours (nullable in v2)</td></tr>
             <tr><td><code>demand_before_qty</code></td><td><span class="type-tag">number</span></td><td>Forecasted demand for hours before the snapshot</td></tr>
           </tbody>
         </table>
@@ -708,6 +734,12 @@
               <td>Delivery filial identifier (positive integer)</td>
             </tr>
             <tr>
+              <td><code>department_id</code></td>
+              <td><span class="type-tag">integer</span></td>
+              <td><span class="optional-tag">optional</span></td>
+              <td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2</span> Department identifier for the batch — applied to every item</td>
+            </tr>
+            <tr>
               <td><code>dates</code></td>
               <td><span class="type-tag">DateEntry[]</span></td>
               <td><span class="required-tag">required</span></td>
@@ -750,14 +782,15 @@
           <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
           <tbody>
             <tr><td><code>lager_id</code></td><td><span class="type-tag">integer</span></td><td><span class="required-tag">required</span></td><td>Product identifier (positive)</td></tr>
+            <tr><td><code>lagerfullname</code></td><td><span class="type-tag">string</span></td><td><span class="optional-tag">optional</span></td><td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2</span> Product full name (from dim_lagers)</td></tr>
             <tr><td><code>priority</code></td><td><span class="type-tag">integer</span></td><td><span class="required-tag">required</span></td><td>Urgency: 1-4</td></tr>
             <tr><td><code>covered_hours</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Hours of stock coverage (&ge;0)</td></tr>
             <tr><td><code>current_stock_qty</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Current stock (&ge;0)</td></tr>
             <tr><td><code>demand_till_day_end</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Demand till day end (&ge;0)</td></tr>
             <tr><td><code>demand_whole_day</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Whole day demand (&ge;0)</td></tr>
             <tr><td><code>recommended_to_produce</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Recommended production qty (&ge;0)</td></tr>
-            <tr><td><code>sales_qty</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Actual sales (&ge;0)</td></tr>
-            <tr><td><code>produced_qty</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Produced quantity (&ge;0)</td></tr>
+            <tr><td><code>sales_qty</code></td><td><span class="type-tag">number|null</span></td><td><span class="optional-tag">optional</span></td><td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2</span> Actual sales (&ge;0) — may be null/omitted</td></tr>
+            <tr><td><code>produced_qty</code></td><td><span class="type-tag">number|null</span></td><td><span class="optional-tag">optional</span></td><td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2</span> Produced quantity (&ge;0) — may be null/omitted</td></tr>
             <tr><td><code>demand_before_qty</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Demand before snapshot (&ge;0)</td></tr>
           </tbody>
         </table>
@@ -773,20 +806,22 @@
   -H "Content-Type: application/json" \
   -d '{
     <span class="json-key">"filial_id"</span>: <span class="json-num">3322</span>,
+    <span class="json-key">"department_id"</span>: <span class="json-num">17</span>,
     <span class="json-key">"dates"</span>: [
       {
         <span class="json-key">"history_date"</span>: <span class="json-str">"2026-06-15"</span>,
         <span class="json-key">"snapshot_hour"</span>: <span class="json-num">14</span>,
         <span class="json-key">"items"</span>: [
           {
-            <span class="json-key">"lager_id"</span>: <span class="json-num">123456</span>,
+            <span class="json-key">"lager_id"</span>: <span class="json-num">552806</span>,
+            <span class="json-key">"lagerfullname"</span>: <span class="json-str">"Багет подовий гречаний"</span>,
             <span class="json-key">"priority"</span>: <span class="json-num">1</span>,
             <span class="json-key">"covered_hours"</span>: <span class="json-num">0.75</span>,
             <span class="json-key">"current_stock_qty"</span>: <span class="json-num">2.5</span>,
             <span class="json-key">"demand_till_day_end"</span>: <span class="json-num">12.3</span>,
             <span class="json-key">"demand_whole_day"</span>: <span class="json-num">18.6</span>,
             <span class="json-key">"recommended_to_produce"</span>: <span class="json-num">9.8</span>,
-            <span class="json-key">"sales_qty"</span>: <span class="json-num">6.2</span>,
+            <span class="json-key">"sales_qty"</span>: <span class="json-null">null</span>,
             <span class="json-key">"produced_qty"</span>: <span class="json-num">3.0</span>,
             <span class="json-key">"demand_before_qty"</span>: <span class="json-num">6.3</span>
           }
@@ -858,6 +893,12 @@
               <td><span class="optional-tag">optional</span></td>
               <td>Filter by product (lager) ID</td>
             </tr>
+            <tr>
+              <td><code>department_id</code></td>
+              <td><span class="type-tag">integer</span></td>
+              <td><span class="optional-tag">optional</span></td>
+              <td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2</span> Filter by department identifier</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -880,6 +921,9 @@ curl "http://165.245.253.31/api/production-plan-priority?filial_id=3322&amp;prio
 <span class="json-comment"># Filter by specific lager</span>
 curl "http://165.245.253.31/api/production-plan-priority?filial_id=3322&amp;lager_id=123456"
 
+<span class="json-comment"># Filter by department (v2)</span>
+curl "http://165.245.253.31/api/production-plan-priority?filial_id=3322&amp;department_id=17"
+
 <span class="json-comment"># Combine filters</span>
 curl "http://165.245.253.31/api/production-plan-priority?filial_id=3322&amp;history_date=2026-06-15&amp;priority=1"</pre>
       </div>
@@ -899,22 +943,19 @@ curl "http://165.245.253.31/api/production-plan-priority?filial_id=3322&amp;hist
       <span class="json-key">"snapshot_hour"</span>: <span class="json-num">14</span>,
       <span class="json-key">"items"</span>: [
         {
-          <span class="json-key">"lager_id"</span>: <span class="json-num">123456</span>,
+          <span class="json-key">"lager_id"</span>: <span class="json-num">552806</span>,
+          <span class="json-key">"lagerfullname"</span>: <span class="json-str">"Багет подовий гречаний"</span>,
+          <span class="json-key">"department_id"</span>: <span class="json-num">17</span>,
+          <span class="json-key">"department_name"</span>: <span class="json-str">"Хлібобулочні вироби"</span>,
           <span class="json-key">"priority"</span>: <span class="json-num">1</span>,
           <span class="json-key">"covered_hours"</span>: <span class="json-num">0.75</span>,
           <span class="json-key">"current_stock_qty"</span>: <span class="json-num">2.5</span>,
           <span class="json-key">"demand_till_day_end"</span>: <span class="json-num">12.3</span>,
           <span class="json-key">"demand_whole_day"</span>: <span class="json-num">18.6</span>,
           <span class="json-key">"recommended_to_produce"</span>: <span class="json-num">9.8</span>,
-          <span class="json-key">"sales_qty"</span>: <span class="json-num">6.2</span>,
+          <span class="json-key">"sales_qty"</span>: <span class="json-null">null</span>,
           <span class="json-key">"produced_qty"</span>: <span class="json-num">3.0</span>,
           <span class="json-key">"demand_before_qty"</span>: <span class="json-num">6.3</span>
-        },
-        {
-          <span class="json-key">"lager_id"</span>: <span class="json-num">789012</span>,
-          <span class="json-key">"priority"</span>: <span class="json-num">2</span>,
-          <span class="json-key">"covered_hours"</span>: <span class="json-num">2.4</span>,
-          <span class="json-comment">// ... more fields</span>
         }
       ]
     },
@@ -959,14 +1000,17 @@ curl "http://165.245.253.31/api/production-plan-priority?filial_id=3322&amp;hist
           <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
           <tbody>
             <tr><td><code>lager_id</code></td><td><span class="type-tag">integer</span></td><td>Product (lager) identifier</td></tr>
+            <tr><td><code>lagerfullname</code></td><td><span class="type-tag">string|null</span></td><td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2</span> Product full name</td></tr>
+            <tr><td><code>department_id</code></td><td><span class="type-tag">integer|null</span></td><td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2</span> Department identifier</td></tr>
+            <tr><td><code>department_name</code></td><td><span class="type-tag">string|null</span></td><td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2</span> Resolved department name</td></tr>
             <tr><td><code>priority</code></td><td><span class="type-tag">integer</span></td><td>Urgency level 1-4</td></tr>
             <tr><td><code>covered_hours</code></td><td><span class="type-tag">number</span></td><td>Fractional hours of stock coverage</td></tr>
             <tr><td><code>current_stock_qty</code></td><td><span class="type-tag">number</span></td><td>Stock at last known hour</td></tr>
             <tr><td><code>demand_till_day_end</code></td><td><span class="type-tag">number</span></td><td>Forecasted demand till EOD</td></tr>
             <tr><td><code>demand_whole_day</code></td><td><span class="type-tag">number</span></td><td>Total day demand</td></tr>
             <tr><td><code>recommended_to_produce</code></td><td><span class="type-tag">number</span></td><td>Qty to produce (0 if covered)</td></tr>
-            <tr><td><code>sales_qty</code></td><td><span class="type-tag">number</span></td><td>Actual sales in past hours</td></tr>
-            <tr><td><code>produced_qty</code></td><td><span class="type-tag">number</span></td><td>Qty received in past hours</td></tr>
+            <tr><td><code>sales_qty</code></td><td><span class="type-tag">number|null</span></td><td>Actual sales in past hours (nullable)</td></tr>
+            <tr><td><code>produced_qty</code></td><td><span class="type-tag">number|null</span></td><td>Qty received in past hours (nullable)</td></tr>
             <tr><td><code>demand_before_qty</code></td><td><span class="type-tag">number</span></td><td>Demand before snapshot hour</td></tr>
           </tbody>
         </table>
@@ -1015,6 +1059,28 @@ curl "http://165.245.253.31/api/production-plan-priority?filial_id=3322&amp;hist
       <div class="callout callout-info">
         <span class="callout-icon">&#x1f4a1;</span>
         <p>The <code>covered_hours</code> value is fractional. For example, <strong>2.40</strong> means stock covers 2 full hours + 40% of the 3rd hour's demand.</p>
+      </div>
+    </section>
+
+    <hr>
+
+    <!-- Departments -->
+    <section class="section section-anchor" id="departments">
+      <h2>Departments <span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2</span></h2>
+      <p>The <code>department_id</code> sent on the POST body is resolved to a
+        <code>department_name</code> in GET responses using the reference below.
+        Exactly one department is expected per <code>lager_id</code>.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>department_id</th><th>department_name</th></tr></thead>
+          <tbody>
+            <tr><td><code>8</code></td><td>М'ясний відділ</td></tr>
+            <tr><td><code>11</code></td><td>Рибний відділ</td></tr>
+            <tr><td><code>13</code></td><td>Кулінарія</td></tr>
+            <tr><td><code>17</code></td><td>Хлібобулочні вироби</td></tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -1128,6 +1194,16 @@ curl "http://165.245.253.31/api/production-plan-priority?filial_id=3322&amp;hist
             <label for="try-lager">lager_id</label>
             <input id="try-lager" type="number" placeholder="optional" style="width:120px">
           </div>
+          <div>
+            <label for="try-department">department_id</label>
+            <select id="try-department" style="width:160px">
+              <option value="">All</option>
+              <option value="8">8 - М'ясний відділ</option>
+              <option value="11">11 - Рибний відділ</option>
+              <option value="13">13 - Кулінарія</option>
+              <option value="17">17 - Хлібобулочні вироби</option>
+            </select>
+          </div>
           <button class="try-btn" onclick="tryGet()">Send Request</button>
         </div>
         <div class="try-result" id="try-result">
@@ -1152,6 +1228,7 @@ function tryGet() {
   const date = document.getElementById('try-date').value;
   const priority = document.getElementById('try-priority').value;
   const lager = document.getElementById('try-lager').value;
+  const department = document.getElementById('try-department').value;
 
   if (!filial) { alert('filial_id is required'); return; }
 
@@ -1159,6 +1236,7 @@ function tryGet() {
   if (date) url += `&history_date=${date}`;
   if (priority) url += `&priority=${priority}`;
   if (lager) url += `&lager_id=${lager}`;
+  if (department) url += `&department_id=${department}`;
 
   const statusEl = document.getElementById('try-status');
   const outputEl = document.getElementById('try-output');

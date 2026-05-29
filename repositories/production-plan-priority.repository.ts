@@ -2,17 +2,19 @@ import { prisma } from "@/lib/prisma";
 
 interface IngestItem {
   filialId: number;
+  departmentId: number | null;
   historyDate: Date;
   snapshotHour: number | null;
   lagerId: number;
+  lagerFullName: string | null;
   priority: number;
   coveredHours: number;
   currentStockQty: number;
   demandTillDayEnd: number;
   demandWholeDay: number;
   recommendedToProduce: number;
-  salesQty: number;
-  producedQty: number;
+  salesQty: number | null;
+  producedQty: number | null;
   demandBeforeQty: number;
 }
 
@@ -21,6 +23,7 @@ interface ListFilters {
   historyDate?: Date;
   priority?: number;
   lagerId?: number;
+  departmentId?: number;
 }
 
 export const productionPlanPriorityRepository = {
@@ -35,7 +38,9 @@ export const productionPlanPriorityRepository = {
           }
         },
         update: {
+          departmentId: item.departmentId,
           snapshotHour: item.snapshotHour,
+          lagerFullName: item.lagerFullName,
           priority: item.priority,
           coveredHours: item.coveredHours,
           currentStockQty: item.currentStockQty,
@@ -66,6 +71,9 @@ export const productionPlanPriorityRepository = {
     }
     if (filters.lagerId) {
       where.lagerId = filters.lagerId;
+    }
+    if (filters.departmentId) {
+      where.departmentId = filters.departmentId;
     }
 
     return prisma.productionPlanPriority.findMany({

@@ -81,9 +81,10 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
     return;
   }
 
-  // Resolve the human-readable product name from Silpo (lager_id = SKU).
-  // Reuse the previously stored name if Silpo is unavailable this run.
-  const lagerName = (await resolveLagerName(row.lagerId)) ?? existing?.lagerName ?? null;
+  // Prefer the product full name supplied by the plan (V2 lagerfullname).
+  // Fall back to a Silpo lookup (lager_id = SKU), then to the stored name.
+  const lagerName =
+    row.lagerFullName ?? (await resolveLagerName(row.lagerId)) ?? existing?.lagerName ?? null;
 
   if (existing) {
     await prisma.productionTask.update({
