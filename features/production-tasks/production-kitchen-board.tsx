@@ -408,34 +408,30 @@ export function ProductionKitchenBoard() {
     [allTasks]
   );
 
-  const branchOptions = useMemo(
-    () => Array.from(new Set(activeTasks.map((task) => task.filial_id))).sort((a, b) => a - b),
-    [activeTasks]
-  );
-
-  const departmentOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          activeTasks
-            .map((task) => task.department_id)
-            .filter((id): id is number => id != null)
-        )
-      ).sort((a, b) => a - b),
-    [activeTasks]
-  );
-
-  useEffect(() => {
-    if (selectedBranch !== "all" && !branchOptions.some((id) => String(id) === selectedBranch)) {
-      setSelectedBranch("all");
+  // Options come from the active tasks, plus the currently-selected value so a
+  // saved filter always stays visible/applied — even while data is still
+  // loading or when that branch/department temporarily has no active tasks.
+  // (No auto-reset to "all", so the operator's choice persists across reloads
+  // and deploys.)
+  const branchOptions = useMemo(() => {
+    const ids = new Set<number>(activeTasks.map((task) => task.filial_id));
+    if (selectedBranch !== "all") {
+      const id = Number(selectedBranch);
+      if (Number.isFinite(id)) ids.add(id);
     }
-  }, [selectedBranch, branchOptions]);
+    return Array.from(ids).sort((a, b) => a - b);
+  }, [activeTasks, selectedBranch]);
 
-  useEffect(() => {
-    if (selectedDepartment !== "all" && !departmentOptions.some((id) => String(id) === selectedDepartment)) {
-      setSelectedDepartment("all");
+  const departmentOptions = useMemo(() => {
+    const ids = new Set<number>(
+      activeTasks.map((task) => task.department_id).filter((id): id is number => id != null)
+    );
+    if (selectedDepartment !== "all") {
+      const id = Number(selectedDepartment);
+      if (Number.isFinite(id)) ids.add(id);
     }
-  }, [selectedDepartment, departmentOptions]);
+    return Array.from(ids).sort((a, b) => a - b);
+  }, [activeTasks, selectedDepartment]);
 
   const filtered = activeTasks.filter(
     (task) =>
