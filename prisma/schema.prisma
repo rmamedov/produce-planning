@@ -225,6 +225,7 @@ model ProductionTask {
   priorityLevel Int
   quantity      Float
   coveredHours  Float
+  currentStockQty Float?
   reason        String
   cancelReason  String?
   operationalReadyAt DateTime?

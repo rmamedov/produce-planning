@@ -106,6 +106,7 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
         priorityLevel: row.priority,
         quantity,
         coveredHours: row.coveredHours,
+        currentStockQty: row.currentStockQty,
         reason,
         lagerName,
         lagerUnit,
@@ -133,6 +134,7 @@ async function generateForRow(row: ProductionPlanPriority, summary: GenerationSu
       priorityLevel: row.priority,
       quantity,
       coveredHours: row.coveredHours,
+      currentStockQty: row.currentStockQty,
       operationalReadyAt,
       reason
     }

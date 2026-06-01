@@ -25,6 +25,7 @@ interface ProductionTask {
   priority_level: number;
   quantity: number;
   covered_hours: number;
+  current_stock_qty: number | null;
   reason: string;
   operational_ready_at: string | null;
   is_overdue: boolean;
@@ -217,6 +218,16 @@ function TaskCard({ task, onChanged, now }: { task: ProductionTask; onChanged: (
           </span>
         </div>
       </div>
+
+      {task.current_stock_qty != null ? (
+        <p className={styles.stockLine}>
+          <span>Залишок на складі</span>
+          <span className={styles.stockValue}>
+            {Math.round(task.current_stock_qty * 10) / 10}
+            <span className={styles.unit}>{task.unit ?? "кг"}</span>
+          </span>
+        </p>
+      ) : null}
 
       {readyAt ? (
         <div className={styles.readiness}>

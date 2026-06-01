@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
         priority_level: task.priorityLevel,
         quantity: task.quantity,
         covered_hours: task.coveredHours,
+        current_stock_qty: task.currentStockQty,
         reason: task.reason,
         operational_ready_at: task.operationalReadyAt?.toISOString() ?? null,
         is_overdue: task.operationalReadyAt ? task.operationalReadyAt.getTime() < Date.now() : false,
