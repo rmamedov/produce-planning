@@ -39,11 +39,16 @@ interface ProductionTasksResponse {
 
 type PrioKey = "critical" | "high" | "medium";
 
-const PRIORITY_META: Record<ProductionTask["priority"], { key: PrioKey; label: string }> = {
-  CRITICAL: { key: "critical", label: "Critical" },
-  HIGH: { key: "high", label: "High" },
-  MEDIUM: { key: "medium", label: "Medium" },
-  LOW: { key: "medium", label: "Medium" }
+// `variant` drives the CSS class suffix (prio/note/card tints); `label` is the
+// Ukrainian text shown on the badge.
+const PRIORITY_META: Record<
+  ProductionTask["priority"],
+  { key: PrioKey; variant: "Critical" | "High" | "Medium"; label: string }
+> = {
+  CRITICAL: { key: "critical", variant: "Critical", label: "Критичний" },
+  HIGH: { key: "high", variant: "High", label: "Високий" },
+  MEDIUM: { key: "medium", variant: "Medium", label: "Нормальний" },
+  LOW: { key: "medium", variant: "Medium", label: "Нормальний" }
 };
 
 const STORAGE_KEY = "kitchen.selectedBranch";
@@ -183,10 +188,16 @@ function TaskCard({
   const busy = start.isPending || complete.isPending || cancel.isPending;
   const inProgress = task.status === "IN_PROGRESS";
 
-  const noteClass = [styles.note, styles[`note${meta.label}` as keyof typeof styles] as string]
+  const noteClass = [styles.note, styles[`note${meta.variant}` as keyof typeof styles] as string]
     .filter(Boolean)
     .join(" ");
-  const prioClass = [styles.prio, styles[`prio${meta.label}` as keyof typeof styles] as string]
+  const prioClass = [styles.prio, styles[`prio${meta.variant}` as keyof typeof styles] as string]
+    .filter(Boolean)
+    .join(" ");
+  const cardClass = [styles.card, styles[`card${meta.variant}` as keyof typeof styles] as string]
+    .filter(Boolean)
+    .join(" ");
+  const rowClass = [styles.row, styles[`row${meta.variant}` as keyof typeof styles] as string]
     .filter(Boolean)
     .join(" ");
 
@@ -279,7 +290,7 @@ function TaskCard({
   // ─── List (row) layout ───
   if (view === "list") {
     return (
-      <article className={styles.row}>
+      <article className={rowClass}>
         <div className={styles.rowMain}>
           <p className={styles.rowTitle}>{task.lager_name ?? `Lager ${task.lager_id}`}</p>
           <p className={styles.rowMeta}>
@@ -338,7 +349,7 @@ function TaskCard({
 
   // ─── Grid (card) layout ───
   return (
-    <article className={styles.card}>
+    <article className={cardClass}>
       <div className={styles.cardHead}>
         <h2 className={styles.cardTitle}>{task.lager_name ?? `Lager ${task.lager_id}`}</h2>
         <div className={styles.headActions}>
