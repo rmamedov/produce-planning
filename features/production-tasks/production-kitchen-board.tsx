@@ -48,6 +48,7 @@ const PRIORITY_META: Record<ProductionTask["priority"], { key: PrioKey; label: s
 
 const STORAGE_KEY = "kitchen.selectedBranch";
 const DEPARTMENT_STORAGE_KEY = "kitchen.selectedDepartment";
+const VIEW_STORAGE_KEY = "kitchen.viewMode";
 
 const CANNOT_PRODUCE_REASONS = [
   "Недостатньо сировини",
@@ -71,6 +72,30 @@ function BanIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="9" />
       <line x1="5.6" y1="5.6" x2="18.4" y2="18.4" />
+    </svg>
+  );
+}
+
+function GridIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
+function ListIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="8" y1="6" x2="20" y2="6" />
+      <line x1="8" y1="12" x2="20" y2="12" />
+      <line x1="8" y1="18" x2="20" y2="18" />
+      <circle cx="4" cy="6" r="1" />
+      <circle cx="4" cy="12" r="1" />
+      <circle cx="4" cy="18" r="1" />
     </svg>
   );
 }
@@ -99,7 +124,19 @@ function CheckIcon() {
   );
 }
 
-function TaskCard({ task, onChanged, now }: { task: ProductionTask; onChanged: () => void; now: number }) {
+type ViewMode = "grid" | "list";
+
+function TaskCard({
+  task,
+  onChanged,
+  now,
+  view
+}: {
+  task: ProductionTask;
+  onChanged: () => void;
+  now: number;
+  view: ViewMode;
+}) {
   const meta = PRIORITY_META[task.priority];
 
   // Live remaining coverage:
@@ -153,44 +190,160 @@ function TaskCard({ task, onChanged, now }: { task: ProductionTask; onChanged: (
     .filter(Boolean)
     .join(" ");
 
+  const badge = inProgress ? (
+    <span className={styles.progressTag}>В роботі</span>
+  ) : (
+    <span className={prioClass}>{meta.label}</span>
+  );
+
+  const kebab = (
+    <div className={styles.kebabWrap}>
+      <button
+        type="button"
+        className={styles.kebab}
+        aria-label="Дії"
+        onClick={() => setMenuOpen((open) => !open)}
+      >
+        <KebabIcon />
+      </button>
+      {menuOpen ? (
+        <>
+          <div className={styles.menuBackdrop} onClick={() => setMenuOpen(false)} />
+          <div className={styles.kebabMenu}>
+            <button
+              type="button"
+              className={styles.kebabItem}
+              onClick={() => {
+                setMenuOpen(false);
+                setReasonOpen(true);
+              }}
+            >
+              <BanIcon />
+              Неможливо виготовити
+            </button>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+
+  const actionButton = inProgress ? (
+    <button
+      type="button"
+      className={`${styles.btnStart} ${styles.btnComplete}`}
+      onClick={() => complete.mutate()}
+      disabled={busy}
+    >
+      <span className={styles.play}>
+        <CheckIcon />
+      </span>
+      Завершити
+    </button>
+  ) : (
+    <button type="button" className={styles.btnStart} onClick={() => start.mutate()} disabled={busy}>
+      <span className={styles.play}>
+        <PlayIcon />
+      </span>
+      Почати
+    </button>
+  );
+
+  const modal = reasonOpen ? (
+    <div className={styles.modalOverlay} onClick={() => setReasonOpen(false)}>
+      <div className={styles.modal} onClick={(event) => event.stopPropagation()}>
+        <p className={styles.modalTitle}>Вкажіть причину</p>
+        <p className={styles.modalSub}>{task.lager_name ?? `Lager ${task.lager_id}`}</p>
+        <div className={styles.reasonList}>
+          {CANNOT_PRODUCE_REASONS.map((reason) => (
+            <button
+              key={reason}
+              type="button"
+              className={styles.reasonBtn}
+              disabled={busy}
+              onClick={() => cancel.mutate(reason, { onSuccess: () => setReasonOpen(false) })}
+            >
+              {reason}
+            </button>
+          ))}
+        </div>
+        <button type="button" className={styles.modalCancel} onClick={() => setReasonOpen(false)}>
+          Скасувати
+        </button>
+      </div>
+    </div>
+  ) : null;
+
+  const stock =
+    task.current_stock_qty != null ? Math.round(task.current_stock_qty * 10) / 10 : null;
+
+  // ─── List (row) layout ───
+  if (view === "list") {
+    return (
+      <article className={styles.row}>
+        <div className={styles.rowMain}>
+          <p className={styles.rowTitle}>{task.lager_name ?? `Lager ${task.lager_id}`}</p>
+          <p className={styles.rowMeta}>
+            SKU {task.lager_id}
+            <span className={styles.sep}>•</span>
+            {getFilialName(task.filial_id)}
+            <span className={styles.sep}>•</span>
+            {task.history_date}
+          </p>
+        </div>
+
+        {badge}
+
+        <div className={styles.rowMetric}>
+          <span className={styles.metricLabel}>Виробити</span>
+          <span className={styles.rowMetricValue}>
+            {task.quantity}
+            <span className={styles.unit}>{task.unit ?? "кг"}</span>
+          </span>
+        </div>
+        <div className={styles.rowMetric}>
+          <span className={styles.metricLabel}>Покриття</span>
+          <span className={styles.rowMetricValue}>
+            {coverage.value}
+            <span className={styles.unit}>{coverage.unit}</span>
+          </span>
+        </div>
+        <div className={styles.rowMetric}>
+          <span className={styles.metricLabel}>Залишок</span>
+          <span className={styles.rowMetricValue}>
+            {stock ?? "—"}
+            {stock != null ? <span className={styles.unit}>{task.unit ?? "кг"}</span> : null}
+          </span>
+        </div>
+
+        <div className={styles.rowReadiness}>
+          {readyAt ? (
+            <>
+              <span className={styles.readinessTime}>{formatReadyAt(readyAt)}</span>
+              <span className={overdue ? styles.statusOverdue : styles.statusOnTime}>
+                {overdue ? "Прострочено" : "Вчасно"}
+              </span>
+            </>
+          ) : null}
+        </div>
+
+        <div className={styles.rowActions}>
+          {actionButton}
+          {kebab}
+        </div>
+
+        {modal}
+      </article>
+    );
+  }
+
+  // ─── Grid (card) layout ───
   return (
     <article className={styles.card}>
       <div className={styles.cardHead}>
         <h2 className={styles.cardTitle}>{task.lager_name ?? `Lager ${task.lager_id}`}</h2>
         <div className={styles.headActions}>
-          {inProgress ? (
-            <span className={styles.progressTag}>В роботі</span>
-          ) : (
-            <span className={prioClass}>{meta.label}</span>
-          )}
-          <div className={styles.kebabWrap}>
-            <button
-              type="button"
-              className={styles.kebab}
-              aria-label="Дії"
-              onClick={() => setMenuOpen((open) => !open)}
-            >
-              <KebabIcon />
-            </button>
-            {menuOpen ? (
-              <>
-                <div className={styles.menuBackdrop} onClick={() => setMenuOpen(false)} />
-                <div className={styles.kebabMenu}>
-                  <button
-                    type="button"
-                    className={styles.kebabItem}
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setReasonOpen(true);
-                    }}
-                  >
-                    <BanIcon />
-                    Неможливо виготовити
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </div>
+          {badge}
+          {kebab}
         </div>
       </div>
 
@@ -219,11 +372,11 @@ function TaskCard({ task, onChanged, now }: { task: ProductionTask; onChanged: (
         </div>
       </div>
 
-      {task.current_stock_qty != null ? (
+      {stock != null ? (
         <p className={styles.stockLine}>
           <span>Залишок на складі</span>
           <span className={styles.stockValue}>
-            {Math.round(task.current_stock_qty * 10) / 10}
+            {stock}
             <span className={styles.unit}>{task.unit ?? "кг"}</span>
           </span>
         </p>
@@ -242,60 +395,8 @@ function TaskCard({ task, onChanged, now }: { task: ProductionTask; onChanged: (
 
       <p className={noteClass}>{task.reason}</p>
 
-      {inProgress ? (
-        <button
-          type="button"
-          className={`${styles.btnStart} ${styles.btnComplete}`}
-          onClick={() => complete.mutate()}
-          disabled={busy}
-        >
-          <span className={styles.play}>
-            <CheckIcon />
-          </span>
-          Завершити
-        </button>
-      ) : (
-        <button
-          type="button"
-          className={styles.btnStart}
-          onClick={() => start.mutate()}
-          disabled={busy}
-        >
-          <span className={styles.play}>
-            <PlayIcon />
-          </span>
-          Почати
-        </button>
-      )}
-
-      {reasonOpen ? (
-        <div className={styles.modalOverlay} onClick={() => setReasonOpen(false)}>
-          <div className={styles.modal} onClick={(event) => event.stopPropagation()}>
-            <p className={styles.modalTitle}>Вкажіть причину</p>
-            <p className={styles.modalSub}>{task.lager_name ?? `Lager ${task.lager_id}`}</p>
-            <div className={styles.reasonList}>
-              {CANNOT_PRODUCE_REASONS.map((reason) => (
-                <button
-                  key={reason}
-                  type="button"
-                  className={styles.reasonBtn}
-                  disabled={busy}
-                  onClick={() =>
-                    cancel.mutate(reason, {
-                      onSuccess: () => setReasonOpen(false)
-                    })
-                  }
-                >
-                  {reason}
-                </button>
-              ))}
-            </div>
-            <button type="button" className={styles.modalCancel} onClick={() => setReasonOpen(false)}>
-              Скасувати
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {actionButton}
+      {modal}
     </article>
   );
 }
@@ -344,6 +445,7 @@ function Clock() {
 export function ProductionKitchenBoard() {
   const [selectedBranch, setSelectedBranch] = useState("all");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
+  const [view, setView] = useState<ViewMode>("grid");
   const [now, setNow] = useState(() => Date.now());
 
   // Tick so the on-time / overdue status flips live without a refetch.
@@ -359,7 +461,15 @@ export function ProductionKitchenBoard() {
     if (branch) setSelectedBranch(branch);
     const department = window.localStorage.getItem(DEPARTMENT_STORAGE_KEY);
     if (department) setSelectedDepartment(department);
+    const storedView = window.localStorage.getItem(VIEW_STORAGE_KEY);
+    if (storedView === "grid" || storedView === "list") setView(storedView);
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(VIEW_STORAGE_KEY, view);
+    }
+  }, [view]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -508,6 +618,27 @@ export function ProductionKitchenBoard() {
             </span>
           </div>
 
+          <div className={styles.viewToggle} role="group" aria-label="Вигляд">
+            <button
+              type="button"
+              className={view === "grid" ? styles.viewToggleActive : styles.viewToggleBtn}
+              aria-label="Плитки"
+              aria-pressed={view === "grid"}
+              onClick={() => setView("grid")}
+            >
+              <GridIcon />
+            </button>
+            <button
+              type="button"
+              className={view === "list" ? styles.viewToggleActive : styles.viewToggleBtn}
+              aria-label="Список"
+              aria-pressed={view === "list"}
+              onClick={() => setView("list")}
+            >
+              <ListIcon />
+            </button>
+          </div>
+
           <span className={styles.statusPill} title="Інтерфейс оптимізовано під роздільну здатність 1340×800">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="6" y="3" width="12" height="18" rx="2.5" />
@@ -554,9 +685,12 @@ export function ProductionKitchenBoard() {
           </button>
         </div>
       ) : tasks.length ? (
-        <section className={styles.grid} aria-label="Список виробничих задач">
+        <section
+          className={view === "list" ? styles.list : styles.grid}
+          aria-label="Список виробничих задач"
+        >
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} now={now} onChanged={() => query.refetch()} />
+            <TaskCard key={task.id} task={task} now={now} view={view} onChanged={() => query.refetch()} />
           ))}
         </section>
       ) : (
