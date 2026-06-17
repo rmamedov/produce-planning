@@ -194,6 +194,123 @@
   pointer-events: none;
 }
 
+/* filters bar */
+.filters {
+  position: relative;
+  z-index: 30; /* keep the date popover above the task grid/list */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+/* date filter */
+.dateFieldWrap {
+  position: relative;
+}
+.dateValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg-1);
+  flex: 1;
+  white-space: nowrap;
+  padding-right: 20px;
+}
+.datePopover {
+  position: absolute;
+  top: 50px;
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-16);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+.dateQuick,
+.dateQuickActive {
+  text-align: left;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--r-12);
+  background: transparent;
+  color: var(--fg-1);
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur) var(--easing);
+}
+.dateQuick:hover {
+  background: var(--black-4);
+}
+.dateQuickActive {
+  background: var(--blue-50);
+  color: var(--blue-700);
+}
+.dateCustom {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 8px 12px 4px;
+  border-top: 1px solid var(--border-1);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-3);
+}
+.dateInput {
+  appearance: none;
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-12);
+  padding: 8px 10px;
+  font-family: var(--font-text);
+  font-size: 14px;
+  color: var(--fg-1);
+  background: var(--surface);
+  outline: none;
+}
+.dateInput:focus {
+  border-color: var(--border-2);
+}
+
+/* segmented status chips */
+.segment {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-volume);
+}
+.segmentBtn,
+.segmentActive {
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--fg-3);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--dur) var(--easing), color var(--dur) var(--easing);
+}
+.segmentBtn:hover {
+  color: var(--fg-1);
+}
+.segmentActive {
+  background: var(--blue-500);
+  color: #fff;
+}
+
 /* status pill */
 .statusPill {
   display: inline-flex;

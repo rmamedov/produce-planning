@@ -54,6 +54,28 @@ const PRIORITY_META: Record<
 const STORAGE_KEY = "kitchen.selectedBranch";
 const DEPARTMENT_STORAGE_KEY = "kitchen.selectedDepartment";
 const VIEW_STORAGE_KEY = "kitchen.viewMode";
+const STATUS_STORAGE_KEY = "kitchen.selectedStatus";
+const PRIORITY_STORAGE_KEY = "kitchen.selectedPriority";
+
+// Local-time YYYY-MM-DD for `offset` days from today.
+function isoDateOffset(offset: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function localDateStr(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function dateFilterLabel(value: string): string {
+  if (value === "all") return "Усі дати";
+  if (value === isoDateOffset(0)) return "Сьогодні";
+  if (value === isoDateOffset(1)) return "Завтра";
+  if (value === isoDateOffset(2)) return "Післязавтра";
+  const [y, m, d] = value.split("-");
+  return `${d}.${m}.${y}`;
+}
 
 const CANNOT_PRODUCE_REASONS = [
   "Недостатньо сировини",
@@ -456,6 +478,10 @@ function Clock() {
 export function ProductionKitchenBoard() {
   const [selectedBranch, setSelectedBranch] = useState("all");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
+  const [selectedDate, setSelectedDate] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedPriority, setSelectedPriority] = useState("all");
+  const [dateMenuOpen, setDateMenuOpen] = useState(false);
   const [view, setView] = useState<ViewMode>("grid");
   const [now, setNow] = useState(() => Date.now());
 
@@ -474,6 +500,10 @@ export function ProductionKitchenBoard() {
     if (department) setSelectedDepartment(department);
     const storedView = window.localStorage.getItem(VIEW_STORAGE_KEY);
     if (storedView === "grid" || storedView === "list") setView(storedView);
+    const status = window.localStorage.getItem(STATUS_STORAGE_KEY);
+    if (status) setSelectedStatus(status);
+    const priority = window.localStorage.getItem(PRIORITY_STORAGE_KEY);
+    if (priority) setSelectedPriority(priority);
   }, []);
 
   useEffect(() => {
@@ -481,6 +511,18 @@ export function ProductionKitchenBoard() {
       window.localStorage.setItem(VIEW_STORAGE_KEY, view);
     }
   }, [view]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(STATUS_STORAGE_KEY, selectedStatus);
+    }
+  }, [selectedStatus]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(PRIORITY_STORAGE_KEY, selectedPriority);
+    }
+  }, [selectedPriority]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -565,11 +607,23 @@ export function ProductionKitchenBoard() {
     return Array.from(ids).sort((a, b) => a - b);
   }, [activeTasks, selectedDepartment]);
 
-  const filtered = activeTasks.filter(
-    (task) =>
-      (selectedBranch === "all" || String(task.filial_id) === selectedBranch) &&
-      (selectedDepartment === "all" || String(task.department_id) === selectedDepartment)
-  );
+  const filtered = activeTasks.filter((task) => {
+    if (selectedBranch !== "all" && String(task.filial_id) !== selectedBranch) return false;
+    if (selectedDepartment !== "all" && String(task.department_id) !== selectedDepartment) return false;
+    if (selectedStatus !== "all" && task.status !== selectedStatus) return false;
+    if (selectedPriority !== "all") {
+      // "Нормальний" (MEDIUM) also covers LOW, which displays as Нормальний.
+      const matches =
+        task.priority === selectedPriority ||
+        (selectedPriority === "MEDIUM" && task.priority === "LOW");
+      if (!matches) return false;
+    }
+    if (selectedDate !== "all") {
+      const deadline = task.operational_ready_at ? localDateStr(new Date(task.operational_ready_at)) : null;
+      if (deadline !== selectedDate) return false;
+    }
+    return true;
+  });
 
   // Sort by operational readiness deadline ascending — the soonest (and
   // already overdue) deadlines float to the top; tasks without one go last.
@@ -589,46 +643,6 @@ export function ProductionKitchenBoard() {
         </div>
 
         <div className={styles.controls}>
-          <div className={styles.field}>
-            <span className={styles.fieldLabel}>Філія</span>
-            <select
-              className={styles.fieldSelect}
-              aria-label="Філія"
-              value={selectedBranch}
-              onChange={(event) => setSelectedBranch(event.target.value)}
-            >
-              <option value="all">Усі філії</option>
-              {branchOptions.map((id) => (
-                <option key={id} value={String(id)}>
-                  {getFilialName(id)}
-                </option>
-              ))}
-            </select>
-            <span className={styles.fieldChevron}>
-              <ChevronIcon />
-            </span>
-          </div>
-
-          <div className={styles.field}>
-            <span className={styles.fieldLabel}>Відділ</span>
-            <select
-              className={styles.fieldSelect}
-              aria-label="Відділ"
-              value={selectedDepartment}
-              onChange={(event) => setSelectedDepartment(event.target.value)}
-            >
-              <option value="all">Усі відділи</option>
-              {departmentOptions.map((id) => (
-                <option key={id} value={String(id)}>
-                  {getDepartmentName(id) ?? `Відділ ${id}`}
-                </option>
-              ))}
-            </select>
-            <span className={styles.fieldChevron}>
-              <ChevronIcon />
-            </span>
-          </div>
-
           <div className={styles.viewToggle} role="group" aria-label="Вигляд">
             <button
               type="button"
@@ -667,6 +681,135 @@ export function ProductionKitchenBoard() {
           </a>
         </div>
       </header>
+
+      <div className={styles.filters}>
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>Філія</span>
+          <select
+            className={styles.fieldSelect}
+            aria-label="Філія"
+            value={selectedBranch}
+            onChange={(event) => setSelectedBranch(event.target.value)}
+          >
+            <option value="all">Усі філії</option>
+            {branchOptions.map((id) => (
+              <option key={id} value={String(id)}>
+                {getFilialName(id)}
+              </option>
+            ))}
+          </select>
+          <span className={styles.fieldChevron}>
+            <ChevronIcon />
+          </span>
+        </div>
+
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>Відділ</span>
+          <select
+            className={styles.fieldSelect}
+            aria-label="Відділ"
+            value={selectedDepartment}
+            onChange={(event) => setSelectedDepartment(event.target.value)}
+          >
+            <option value="all">Усі відділи</option>
+            {departmentOptions.map((id) => (
+              <option key={id} value={String(id)}>
+                {getDepartmentName(id) ?? `Відділ ${id}`}
+              </option>
+            ))}
+          </select>
+          <span className={styles.fieldChevron}>
+            <ChevronIcon />
+          </span>
+        </div>
+
+        <div className={styles.dateFieldWrap}>
+          <button
+            type="button"
+            className={styles.field}
+            onClick={() => setDateMenuOpen((open) => !open)}
+          >
+            <span className={styles.fieldLabel}>Дата</span>
+            <span className={styles.dateValue}>{dateFilterLabel(selectedDate)}</span>
+            <span className={styles.fieldChevron}>
+              <ChevronIcon />
+            </span>
+          </button>
+          {dateMenuOpen ? (
+            <>
+              <div className={styles.menuBackdrop} onClick={() => setDateMenuOpen(false)} />
+              <div className={styles.datePopover}>
+                {[
+                  { label: "Усі дати", value: "all" },
+                  { label: "Сьогодні", value: isoDateOffset(0) },
+                  { label: "Завтра", value: isoDateOffset(1) },
+                  { label: "Післязавтра", value: isoDateOffset(2) }
+                ].map((opt) => (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    className={selectedDate === opt.value ? styles.dateQuickActive : styles.dateQuick}
+                    onClick={() => {
+                      setSelectedDate(opt.value);
+                      setDateMenuOpen(false);
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+                <label className={styles.dateCustom}>
+                  Інша дата
+                  <input
+                    type="date"
+                    className={styles.dateInput}
+                    value={selectedDate === "all" ? "" : selectedDate}
+                    onChange={(event) => {
+                      setSelectedDate(event.target.value || "all");
+                      setDateMenuOpen(false);
+                    }}
+                  />
+                </label>
+              </div>
+            </>
+          ) : null}
+        </div>
+
+        <div className={styles.segment} role="group" aria-label="Статус">
+          {[
+            { label: "Усі", value: "all" },
+            { label: "До виконання", value: "NEW" },
+            { label: "В роботі", value: "IN_PROGRESS" }
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              className={selectedStatus === opt.value ? styles.segmentActive : styles.segmentBtn}
+              aria-pressed={selectedStatus === opt.value}
+              onClick={() => setSelectedStatus(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <div className={styles.field}>
+          <span className={styles.fieldLabel}>Пріоритет</span>
+          <select
+            className={styles.fieldSelect}
+            aria-label="Пріоритет"
+            value={selectedPriority}
+            onChange={(event) => setSelectedPriority(event.target.value)}
+          >
+            <option value="all">Усі пріоритети</option>
+            <option value="CRITICAL">Критичний</option>
+            <option value="HIGH">Високий</option>
+            <option value="MEDIUM">Нормальний</option>
+          </select>
+          <span className={styles.fieldChevron}>
+            <ChevronIcon />
+          </span>
+        </div>
+      </div>
 
       {query.isLoading ? (
         <section className={styles.grid} aria-label="Завантаження">
