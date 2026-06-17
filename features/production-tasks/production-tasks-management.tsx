@@ -14,6 +14,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { Select } from "@/components/ui/select";
 import { apiClient, useApiMutation, useApiQuery } from "@/hooks/use-api";
 import { formatCoverage } from "@/lib/format";
+import { ProductionTasksExport } from "@/features/production-tasks/production-tasks-export";
 
 interface ProductionTask {
   id: string;
@@ -223,6 +224,8 @@ export function ProductionTasksManagement() {
         <StatCard title="Критичних" value={criticalCount} />
         <StatCard title="Загальний обсяг до виробництва" value={Math.round(totalQuantity * 100) / 100} />
       </div>
+
+      <ProductionTasksExport />
 
       <Card>
         <CardHeader>
