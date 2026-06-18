@@ -64,10 +64,6 @@ function isoDateOffset(offset: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function localDateStr(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
 function dateFilterLabel(value: string): string {
   if (value === "all") return "Усі дати";
   if (value === isoDateOffset(0)) return "Сьогодні";
@@ -618,10 +614,9 @@ export function ProductionKitchenBoard() {
         (selectedPriority === "MEDIUM" && task.priority === "LOW");
       if (!matches) return false;
     }
-    if (selectedDate !== "all") {
-      const deadline = task.operational_ready_at ? localDateStr(new Date(task.operational_ready_at)) : null;
-      if (deadline !== selectedDate) return false;
-    }
+    // Filter by the production date shown on the card (history_date), which is
+    // what the Сьогодні / Завтра / Післязавтра quick buttons map to.
+    if (selectedDate !== "all" && task.history_date !== selectedDate) return false;
     return true;
   });
 
