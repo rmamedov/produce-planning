@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { InstallPrompt } from "@/components/pwa/install-prompt";
@@ -149,7 +149,7 @@ function CheckIcon() {
 
 type ViewMode = "grid" | "list";
 
-function TaskCard({
+const TaskCard = memo(function TaskCard({
   task,
   onChanged,
   now,
@@ -428,7 +428,7 @@ function TaskCard({
       {modal}
     </article>
   );
-}
+});
 
 function pad2(value: number) {
   return String(value).padStart(2, "0");
@@ -570,6 +570,12 @@ export function ProductionKitchenBoard() {
       source.close();
     };
   }, [queryClient]);
+
+  // Stable so memoized TaskCards don't re-render on every parent render.
+  const refetch = query.refetch;
+  const handleTaskChanged = useCallback(() => {
+    void refetch();
+  }, [refetch]);
 
   const allTasks = query.data?.tasks ?? [];
 
@@ -839,7 +845,7 @@ export function ProductionKitchenBoard() {
           aria-label="Список виробничих задач"
         >
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} now={now} view={view} onChanged={() => query.refetch()} />
+            <TaskCard key={task.id} task={task} now={now} view={view} onChanged={handleTaskChanged} />
           ))}
         </section>
       ) : (
