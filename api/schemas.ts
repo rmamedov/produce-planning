@@ -107,7 +107,14 @@ export const productionPlanPriorityQuerySchema = z.object({
 export const productionTaskQuerySchema = z.object({
   filial_id: z.coerce.number().int().positive().optional(),
   history_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "history_date має бути у форматі YYYY-MM-DD").optional(),
-  status: z.enum(["NEW", "IN_PROGRESS", "DONE", "CANCELLED"]).optional(),
+  // Single status or a comma-separated list, e.g. "NEW,IN_PROGRESS".
+  status: z
+    .string()
+    .regex(
+      /^(NEW|IN_PROGRESS|DONE|CANCELLED)(,(NEW|IN_PROGRESS|DONE|CANCELLED))*$/,
+      "status має бути NEW, IN_PROGRESS, DONE або CANCELLED (через кому)"
+    )
+    .optional(),
   priority: z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW"]).optional(),
   department_id: z.coerce.number().int().positive().optional()
 });

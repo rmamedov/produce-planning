@@ -1,64 +1,46 @@
-#!/bin/sh
-set -eu
+#!/bin/bash
+# Deploy produce-planning to the production droplet.
+#
+# Test gates (both must pass, otherwise the deploy aborts):
+#   1. the full test suite runs locally before anything is uploaded;
+#   2. `npm run build` on the droplet runs the suite again via the
+#      `prebuild` hook before `next build`.
+#
+# Usage: scripts/deploy-droplet.sh
+#   HOST     (default 165.245.253.31)
+#   SSH_KEY  (default ~/.ssh/id_droplet)
+set -euo pipefail
 
-if [ -z "${HOST:-}" ] || [ -z "${USER:-}" ] || [ -z "${PASSWORD:-}" ] || [ -z "${REMOTE_DIR:-}" ]; then
-  echo "Required env vars: HOST USER PASSWORD REMOTE_DIR"
-  exit 1
-fi
+HOST="${HOST:-165.245.253.31}"
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_droplet}"
+REMOTE_DIR="/opt/produce-planning"
 
-if [ ! -f ".env.production" ]; then
-  echo ".env.production is required in the project root"
-  exit 1
-fi
+cd "$(dirname "$0")/.."
 
-if ! command -v sshpass >/dev/null 2>&1; then
-  echo "sshpass is required"
-  exit 1
-fi
+echo "==> [1/4] Tests (local deploy gate)"
+npm run test
 
-SSH_OPTS="-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$HOME/.ssh/known_hosts -o PubkeyAuthentication=no -o PreferredAuthentications=password"
-
-echo "Preparing remote server..."
-sshpass -p "$PASSWORD" ssh $SSH_OPTS "$USER@$HOST" "
-  set -eu
-  mkdir -p '$REMOTE_DIR'
-  if ! command -v docker >/dev/null 2>&1; then
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update
-    apt-get install -y ca-certificates curl gnupg
-    install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    chmod a+r /etc/apt/keyrings/docker.gpg
-    . /etc/os-release
-    CODENAME=\${VERSION_CODENAME:-\${UBUNTU_CODENAME:-jammy}}
-    echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$CODENAME stable\" > /etc/apt/sources.list.d/docker.list
-    apt-get update
-    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-    systemctl enable docker
-    systemctl start docker
-  fi
-"
-
-echo "Uploading project files..."
-tar \
+echo "==> [2/4] Syncing project files to $HOST"
+rsync -az \
   --exclude='.git' \
   --exclude='node_modules' \
   --exclude='.next' \
+  --exclude='.env' \
+  --exclude='.env.production' \
   --exclude='public/uploads/*' \
-  -czf /tmp/produce-planning-deploy.tgz .
+  --exclude='tsconfig.tsbuildinfo' \
+  -e "ssh -i $SSH_KEY" ./ "root@$HOST:$REMOTE_DIR/"
 
-sshpass -p "$PASSWORD" scp $SSH_OPTS /tmp/produce-planning-deploy.tgz "$USER@$HOST:$REMOTE_DIR/produce-planning-deploy.tgz"
-sshpass -p "$PASSWORD" scp $SSH_OPTS .env.production "$USER@$HOST:$REMOTE_DIR/.env.production"
-
-echo "Extracting and starting containers..."
-sshpass -p "$PASSWORD" ssh $SSH_OPTS "$USER@$HOST" "
+echo "==> [3/4] Install deps + tests + build on the droplet"
+ssh -i "$SSH_KEY" "root@$HOST" "
   set -eu
   cd '$REMOTE_DIR'
-  tar -xzf produce-planning-deploy.tgz
-  rm -f produce-planning-deploy.tgz
-  docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+  npm install --no-audit --no-fund
+  npx prisma generate
+  npm run build
 "
 
-rm -f /tmp/produce-planning-deploy.tgz
+echo "==> [4/4] Restarting service"
+ssh -i "$SSH_KEY" "root@$HOST" "systemctl restart produce-planning && sleep 3 && systemctl is-active produce-planning"
 
-echo "Deployment finished. Check: http://$HOST/healthz"
+echo "==> Deployed: http://$HOST/kitchen"

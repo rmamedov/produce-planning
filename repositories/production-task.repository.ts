@@ -6,7 +6,7 @@ interface ListFilters {
   filialId?: number;
   departmentId?: number;
   historyDate?: Date;
-  status?: TaskStatus;
+  status?: TaskStatus | TaskStatus[];
   priority?: TaskPriority;
 }
 
@@ -24,7 +24,7 @@ export const productionTaskRepository = {
       where.historyDate = filters.historyDate;
     }
     if (filters.status) {
-      where.status = filters.status;
+      where.status = Array.isArray(filters.status) ? { in: filters.status } : filters.status;
     }
     if (filters.priority) {
       where.priority = filters.priority;

@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       filialId: query.filial_id,
       departmentId: query.department_id,
       historyDate: query.history_date ? new Date(query.history_date) : undefined,
-      status: query.status as TaskStatus | undefined,
+      status: query.status ? (query.status.split(",") as TaskStatus[]) : undefined,
       priority: query.priority as TaskPriority | undefined
     });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { InstallPrompt } from "@/components/pwa/install-prompt";
@@ -8,6 +8,16 @@ import { getDepartmentName } from "@/domain/departments";
 import { getFilialName } from "@/domain/filials";
 import { apiClient, useApiMutation, useApiQuery } from "@/hooks/use-api";
 import { formatCoverageParts } from "@/lib/format";
+import {
+  DATE_QUICK_OPTIONS,
+  DEFAULT_DEPARTMENT_ID,
+  DEFAULT_FILIAL_ID,
+  dateFilterLabel,
+  isConcreteDate,
+  resolveBranchSelection,
+  resolveDateFilter,
+  resolveDepartmentSelection
+} from "@/lib/kitchen-filters";
 import styles from "./production-kitchen-board.module.css";
 
 interface ProductionTask {
@@ -53,25 +63,10 @@ const PRIORITY_META: Record<
 
 const STORAGE_KEY = "kitchen.selectedBranch";
 const DEPARTMENT_STORAGE_KEY = "kitchen.selectedDepartment";
+const DATE_STORAGE_KEY = "kitchen.selectedDate";
 const VIEW_STORAGE_KEY = "kitchen.viewMode";
 const STATUS_STORAGE_KEY = "kitchen.selectedStatus";
 const PRIORITY_STORAGE_KEY = "kitchen.selectedPriority";
-
-// Local-time YYYY-MM-DD for `offset` days from today.
-function isoDateOffset(offset: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function dateFilterLabel(value: string): string {
-  if (value === "all") return "Усі дати";
-  if (value === isoDateOffset(0)) return "Сьогодні";
-  if (value === isoDateOffset(1)) return "Завтра";
-  if (value === isoDateOffset(2)) return "Післязавтра";
-  const [y, m, d] = value.split("-");
-  return `${d}.${m}.${y}`;
-}
 
 const CANNOT_PRODUCE_REASONS = [
   "Недостатньо сировини",
@@ -472,14 +467,20 @@ function Clock() {
 }
 
 export function ProductionKitchenBoard() {
-  const [selectedBranch, setSelectedBranch] = useState("all");
-  const [selectedDepartment, setSelectedDepartment] = useState("all");
-  const [selectedDate, setSelectedDate] = useState("all");
+  // Defaults: filial 3361 (Березнева), department Пекарня, today's tasks.
+  // A stored operator choice (restored below) overrides each of them.
+  const [selectedBranch, setSelectedBranch] = useState(String(DEFAULT_FILIAL_ID));
+  const [selectedDepartment, setSelectedDepartment] = useState(String(DEFAULT_DEPARTMENT_ID));
+  const [selectedDate, setSelectedDate] = useState("today");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedPriority, setSelectedPriority] = useState("all");
   const [dateMenuOpen, setDateMenuOpen] = useState(false);
   const [view, setView] = useState<ViewMode>("grid");
   const [now, setNow] = useState(() => Date.now());
+
+  // True once the branch is either restored from storage or defaulted from
+  // the loaded task list — prevents the fallback from overriding the operator.
+  const branchResolvedRef = useRef(false);
 
   // Tick so the on-time / overdue status flips live without a refetch.
   useEffect(() => {
@@ -487,19 +488,42 @@ export function ProductionKitchenBoard() {
     return () => clearInterval(id);
   }, []);
 
-  // Restore the operator's branch / department choice for the session.
+  // Restore the operator's choices. Branch "all" is a legacy value from when
+  // the board had an "Усі філії" option — ignore it so the default applies.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const branch = window.localStorage.getItem(STORAGE_KEY);
-    if (branch) setSelectedBranch(branch);
-    const department = window.localStorage.getItem(DEPARTMENT_STORAGE_KEY);
-    if (department) setSelectedDepartment(department);
+    if (branch && branch !== "all") {
+      setSelectedBranch(branch);
+      branchResolvedRef.current = true;
+    }
+    setSelectedDepartment(resolveDepartmentSelection(window.localStorage.getItem(DEPARTMENT_STORAGE_KEY)));
+    const storedDate = window.localStorage.getItem(DATE_STORAGE_KEY);
+    if (storedDate) setSelectedDate(storedDate);
     const storedView = window.localStorage.getItem(VIEW_STORAGE_KEY);
     if (storedView === "grid" || storedView === "list") setView(storedView);
     const status = window.localStorage.getItem(STATUS_STORAGE_KEY);
     if (status) setSelectedStatus(status);
     const priority = window.localStorage.getItem(PRIORITY_STORAGE_KEY);
     if (priority) setSelectedPriority(priority);
+  }, []);
+
+  // Explicit operator choices persist; the auto-resolved defaults do not, so
+  // the default logic (3361 → first available) re-runs on every fresh load.
+  const changeBranch = useCallback((value: string) => {
+    branchResolvedRef.current = true;
+    setSelectedBranch(value);
+    window.localStorage.setItem(STORAGE_KEY, value);
+  }, []);
+
+  const changeDepartment = useCallback((value: string) => {
+    setSelectedDepartment(value);
+    window.localStorage.setItem(DEPARTMENT_STORAGE_KEY, value);
+  }, []);
+
+  const changeDate = useCallback((value: string) => {
+    setSelectedDate(value);
+    window.localStorage.setItem(DATE_STORAGE_KEY, value);
   }, []);
 
   useEffect(() => {
@@ -520,25 +544,33 @@ export function ProductionKitchenBoard() {
     }
   }, [selectedPriority]);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, selectedBranch);
-    }
-  }, [selectedBranch]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(DEPARTMENT_STORAGE_KEY, selectedDepartment);
-    }
-  }, [selectedDepartment]);
-
   const queryClient = useQueryClient();
+  // Fetch only active tasks — the board never shows DONE/CANCELLED, and the
+  // full history has grown to tens of thousands of rows.
   const query = useApiQuery<ProductionTasksResponse>(
     ["production-tasks", "kitchen"],
-    "/api/production-tasks",
+    "/api/production-tasks?status=NEW,IN_PROGRESS",
     // Polling is only a fallback; live updates arrive instantly over SSE below.
     { refetchInterval: 20000 }
   );
+
+  // Default the branch once tasks are known: 3361 when it has tasks,
+  // otherwise the first filial that does. A stored choice wins (see above).
+  useEffect(() => {
+    if (branchResolvedRef.current) return;
+    const loaded = query.data?.tasks;
+    if (!loaded) return;
+    const ids = Array.from(
+      new Set(
+        loaded
+          .filter((task) => task.status === "NEW" || task.status === "IN_PROGRESS")
+          .map((task) => task.filial_id)
+      )
+    );
+    const resolved = resolveBranchSelection(null, ids, true);
+    if (resolved) setSelectedBranch(resolved);
+    branchResolvedRef.current = true;
+  }, [query.data]);
 
   // Real-time updates: subscribe to the server-sent event stream and refresh
   // the moment a forecast is ingested or any task changes status. Reconnects
@@ -609,8 +641,12 @@ export function ProductionKitchenBoard() {
     return Array.from(ids).sort((a, b) => a - b);
   }, [activeTasks, selectedDepartment]);
 
+  // Semantic tokens ("today" etc.) resolve against the ticking clock, so the
+  // filter stays correct across midnight without a reload.
+  const resolvedDate = resolveDateFilter(selectedDate, new Date(now));
+
   const filtered = activeTasks.filter((task) => {
-    if (selectedBranch !== "all" && String(task.filial_id) !== selectedBranch) return false;
+    if (String(task.filial_id) !== selectedBranch) return false;
     if (selectedDepartment !== "all" && String(task.department_id) !== selectedDepartment) return false;
     if (selectedStatus !== "all" && task.status !== selectedStatus) return false;
     if (selectedPriority !== "all") {
@@ -621,8 +657,8 @@ export function ProductionKitchenBoard() {
       if (!matches) return false;
     }
     // Filter by the production date shown on the card (history_date), which is
-    // what the Сьогодні / Завтра / Післязавтра quick buttons map to.
-    if (selectedDate !== "all" && task.history_date !== selectedDate) return false;
+    // what the Вчора / Сьогодні / Завтра / Післязавтра quick buttons map to.
+    if (resolvedDate !== "all" && task.history_date !== resolvedDate) return false;
     return true;
   });
 
@@ -690,9 +726,8 @@ export function ProductionKitchenBoard() {
             className={styles.fieldSelect}
             aria-label="Філія"
             value={selectedBranch}
-            onChange={(event) => setSelectedBranch(event.target.value)}
+            onChange={(event) => changeBranch(event.target.value)}
           >
-            <option value="all">Усі філії</option>
             {branchOptions.map((id) => (
               <option key={id} value={String(id)}>
                 {getFilialName(id)}
@@ -710,7 +745,7 @@ export function ProductionKitchenBoard() {
             className={styles.fieldSelect}
             aria-label="Відділ"
             value={selectedDepartment}
-            onChange={(event) => setSelectedDepartment(event.target.value)}
+            onChange={(event) => changeDepartment(event.target.value)}
           >
             <option value="all">Усі відділи</option>
             {departmentOptions.map((id) => (
@@ -740,18 +775,13 @@ export function ProductionKitchenBoard() {
             <>
               <div className={styles.menuBackdrop} onClick={() => setDateMenuOpen(false)} />
               <div className={styles.datePopover}>
-                {[
-                  { label: "Усі дати", value: "all" },
-                  { label: "Сьогодні", value: isoDateOffset(0) },
-                  { label: "Завтра", value: isoDateOffset(1) },
-                  { label: "Післязавтра", value: isoDateOffset(2) }
-                ].map((opt) => (
+                {DATE_QUICK_OPTIONS.map((opt) => (
                   <button
-                    key={opt.label}
+                    key={opt.value}
                     type="button"
                     className={selectedDate === opt.value ? styles.dateQuickActive : styles.dateQuick}
                     onClick={() => {
-                      setSelectedDate(opt.value);
+                      changeDate(opt.value);
                       setDateMenuOpen(false);
                     }}
                   >
@@ -763,9 +793,9 @@ export function ProductionKitchenBoard() {
                   <input
                     type="date"
                     className={styles.dateInput}
-                    value={selectedDate === "all" ? "" : selectedDate}
+                    value={isConcreteDate(selectedDate) ? selectedDate : ""}
                     onChange={(event) => {
-                      setSelectedDate(event.target.value || "all");
+                      changeDate(event.target.value || "all");
                       setDateMenuOpen(false);
                     }}
                   />
