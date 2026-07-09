@@ -29,6 +29,7 @@ rsync -az \
   --exclude='.env.production' \
   --exclude='public/uploads/*' \
   --exclude='tsconfig.tsbuildinfo' \
+  --exclude='/archive' \
   -e "ssh -i $SSH_KEY" ./ "root@$HOST:$REMOTE_DIR/"
 
 echo "==> [3/4] Install deps + tests + build on the droplet"
