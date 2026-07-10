@@ -18,6 +18,7 @@ import {
   resolveDateFilter,
   resolveDepartmentSelection
 } from "@/lib/kitchen-filters";
+import { sortKitchenTasks } from "@/lib/task-sorting";
 import styles from "./production-kitchen-board.module.css";
 
 interface ProductionTask {
@@ -662,13 +663,13 @@ export function ProductionKitchenBoard() {
     return true;
   });
 
-  // Sort by operational readiness deadline ascending — the soonest (and
-  // already overdue) deadlines float to the top; tasks without one go last.
-  const tasks = useMemo(() => {
-    const deadline = (task: ProductionTask) =>
-      task.operational_ready_at ? new Date(task.operational_ready_at).getTime() : Number.POSITIVE_INFINITY;
-    return [...filtered].sort((a, b) => deadline(a) - deadline(b));
-  }, [filtered]);
+  // Criticality groups first (Критичні → Високі → Нормальні), nearest
+  // readiness deadline first inside each; with a concrete priority filter the
+  // grouping is redundant, so it's pure readiness order. See lib/task-sorting.
+  const tasks = useMemo(
+    () => sortKitchenTasks(filtered, selectedPriority),
+    [filtered, selectedPriority]
+  );
 
   return (
     <>
