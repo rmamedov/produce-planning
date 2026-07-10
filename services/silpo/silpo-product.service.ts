@@ -1,8 +1,16 @@
+import { mapWithConcurrency } from "@/lib/concurrency";
+
 const SILPO_API_BASE = "https://sf-ecom-api.silpo.ua/v1/uk";
 
 // Any valid Silpo branch works for resolving product info (it does not depend
 // on the branch). Overridable via env if needed.
 const SILPO_BRANCH_ID = process.env.SILPO_BRANCH_ID ?? "1ed43e73-051b-6842-a111-a5ad042eb496";
+
+// A hung Silpo must never hang an ingest: abort each lookup after 3s.
+const SILPO_TIMEOUT_MS = 3000;
+
+// How many lookups run in parallel during batch resolution.
+const SILPO_CONCURRENCY = 8;
 
 export interface LagerInfo {
   name: string | null;
@@ -29,7 +37,8 @@ export async function resolveLagerInfo(sku: number): Promise<LagerInfo> {
       `${SILPO_API_BASE}/branches/${SILPO_BRANCH_ID}/products/${sku}`,
       {
         headers: { Accept: "application/json" },
-        cache: "no-store"
+        cache: "no-store",
+        signal: AbortSignal.timeout(SILPO_TIMEOUT_MS)
       }
     );
 
@@ -56,17 +65,17 @@ export async function resolveLagerName(sku: number): Promise<string | null> {
 }
 
 /**
- * Resolves several SKUs in parallel, returning a map of SKU -> LagerInfo.
+ * Resolves several SKUs in parallel with a concurrency cap (so a large batch
+ * doesn't open hundreds of simultaneous connections), returning SKU -> info.
  */
-export async function resolveLagerInfos(skus: number[]): Promise<Map<number, LagerInfo>> {
+export async function resolveLagerInfos(
+  skus: number[],
+  concurrency = SILPO_CONCURRENCY
+): Promise<Map<number, LagerInfo>> {
   const unique = Array.from(new Set(skus));
+  const infos = await mapWithConcurrency(unique, concurrency, (sku) => resolveLagerInfo(sku));
+
   const result = new Map<number, LagerInfo>();
-
-  await Promise.all(
-    unique.map(async (sku) => {
-      result.set(sku, await resolveLagerInfo(sku));
-    })
-  );
-
+  unique.forEach((sku, index) => result.set(sku, infos[index]));
   return result;
 }
