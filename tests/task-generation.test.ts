@@ -5,7 +5,9 @@ import {
   decideMutation,
   mapPriorityLevel,
   operationalReadyAtFor,
-  resolveNaming
+  resolveNaming,
+  shouldReopenDone,
+  snapshotTimestamp
 } from "@/lib/task-generation";
 
 describe("decideMutation", () => {
@@ -18,15 +20,60 @@ describe("decideMutation", () => {
     expect(decideMutation(-1, "NEW")).toBe("cancel");
   });
 
-  it("never overwrites started or finished work", () => {
+  it("never overwrites started or finished work by default", () => {
     expect(decideMutation(5, "IN_PROGRESS")).toBe("unchanged");
     expect(decideMutation(5, "DONE")).toBe("unchanged");
+    expect(decideMutation(5, "DONE", { reopenDone: false })).toBe("unchanged");
+  });
+
+  it("reopens a DONE task only when explicitly allowed", () => {
+    expect(decideMutation(5, "DONE", { reopenDone: true })).toBe("update");
+    // reopenDone never resurrects tasks with nothing to produce…
+    expect(decideMutation(0, "DONE", { reopenDone: true })).toBe("skip");
+    // …and never touches work in progress.
+    expect(decideMutation(5, "IN_PROGRESS", { reopenDone: true })).toBe("unchanged");
   });
 
   it("creates when there is no task, refreshes NEW/CANCELLED ones", () => {
     expect(decideMutation(5, null)).toBe("create");
     expect(decideMutation(5, "NEW")).toBe("update");
     expect(decideMutation(5, "CANCELLED")).toBe("update");
+  });
+});
+
+describe("snapshotTimestamp", () => {
+  const historyDate = new Date("2026-07-10T00:00:00.000Z");
+
+  it("interprets snapshot_hour as Kyiv time (UTC+3)", () => {
+    expect(snapshotTimestamp(historyDate, 10)?.toISOString()).toBe("2026-07-10T07:00:00.000Z");
+    // Midnight Kyiv is 21:00 UTC the previous day.
+    expect(snapshotTimestamp(historyDate, 0)?.toISOString()).toBe("2026-07-09T21:00:00.000Z");
+  });
+
+  it("returns null without a snapshot hour", () => {
+    expect(snapshotTimestamp(historyDate, null)).toBeNull();
+  });
+});
+
+describe("shouldReopenDone", () => {
+  const historyDate = new Date("2026-07-10T00:00:00.000Z");
+  // Snapshot at 10:00 Kyiv = 07:00 UTC.
+  const row = { recommendedToProduce: 5, historyDate, snapshotHour: 10 };
+
+  it("reopens when the stock snapshot is newer than the completion", () => {
+    expect(shouldReopenDone(row, new Date("2026-07-09T11:14:00.000Z"))).toBe(true);
+    expect(shouldReopenDone(row, new Date("2026-07-10T05:32:00.000Z"))).toBe(true);
+  });
+
+  it("keeps just-finished work: snapshot older than the completion", () => {
+    expect(shouldReopenDone(row, new Date("2026-07-10T07:15:00.000Z"))).toBe(false);
+    expect(shouldReopenDone(row, new Date("2026-07-10T07:00:00.000Z"))).toBe(false); // ties stay closed
+  });
+
+  it("requires demand, a completion time and a snapshot hour", () => {
+    expect(shouldReopenDone({ ...row, recommendedToProduce: 0 }, new Date("2026-07-09T11:14:00.000Z"))).toBe(false);
+    expect(shouldReopenDone(row, null)).toBe(false);
+    expect(shouldReopenDone({ ...row, snapshotHour: null }, new Date("2026-07-09T11:14:00.000Z"))).toBe(false);
   });
 });
 

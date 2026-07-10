@@ -9,7 +9,8 @@ import {
   decideMutation,
   mapPriorityLevel,
   operationalReadyAtFor,
-  resolveNaming
+  resolveNaming,
+  shouldReopenDone
 } from "@/lib/task-generation";
 import { productionTaskEvents } from "@/services/production-tasks/production-task-events";
 import { resolveLagerInfos } from "@/services/silpo/silpo-product.service";
@@ -107,7 +108,15 @@ export const productionTaskGenerationService = {
 
     for (const row of rows) {
       const existing = existingBySource.get(row.id) ?? null;
-      const decision = decideMutation(row.recommendedToProduce, existing?.status ?? null);
+      // A DONE task comes back only when the forecast's stock snapshot is
+      // newer than the completion — fresh data says the shelf is empty again.
+      const reopenDone =
+        existing?.status === TaskStatus.DONE
+          ? shouldReopenDone(row, existing.completedAt)
+          : false;
+      const decision = decideMutation(row.recommendedToProduce, existing?.status ?? null, {
+        reopenDone
+      });
 
       if (decision === "skip") {
         summary.skipped += 1;
@@ -174,7 +183,12 @@ export const productionTaskGenerationService = {
             lagerUnit,
             snapshotHour: row.snapshotHour,
             departmentId: row.departmentId,
-            operationalReadyAt
+            operationalReadyAt,
+            // The task returns to the board as a fresh one: a reopened DONE
+            // task drops its completion, a reopened CANCELLED task its reason.
+            startedAt: null,
+            completedAt: null,
+            cancelReason: null
           }
         });
         summary.updated += 1;

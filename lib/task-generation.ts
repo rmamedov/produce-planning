@@ -13,20 +13,58 @@ export const CANCELLED_BY_COVERAGE_REASON =
 /**
  * What to do with a forecast row given the task that already exists for it:
  *  - nothing to produce → cancel a NEW task, otherwise skip;
- *  - work already started/finished (IN_PROGRESS/DONE) is never overwritten;
+ *  - work in progress is never overwritten;
+ *  - finished (DONE) work is kept, unless `reopenDone` says fresh stock data
+ *    still shows demand after the completion (see shouldReopenDone);
  *  - otherwise refresh the existing task or create a new one.
  */
 export function decideMutation(
   recommendedToProduce: number,
-  existingStatus: TaskStatusLiteral | null
+  existingStatus: TaskStatusLiteral | null,
+  options?: { reopenDone?: boolean }
 ): MutationDecision {
   if (recommendedToProduce <= 0) {
     return existingStatus === "NEW" ? "cancel" : "skip";
   }
-  if (existingStatus === "IN_PROGRESS" || existingStatus === "DONE") {
+  if (existingStatus === "IN_PROGRESS") {
     return "unchanged";
   }
+  if (existingStatus === "DONE") {
+    return options?.reopenDone ? "update" : "unchanged";
+  }
   return existingStatus ? "update" : "create";
+}
+
+// The app treats forecast hours as Kyiv time (UTC+3), consistently with the
+// analytics and export code.
+const KYIV_OFFSET_HOURS = 3;
+
+/**
+ * The moment the stock snapshot behind a forecast row was taken:
+ * `historyDate` (a UTC-midnight DATE) at `snapshotHour` Kyiv time.
+ * Returns null when the row carries no snapshot hour.
+ */
+export function snapshotTimestamp(historyDate: Date, snapshotHour: number | null): Date | null {
+  if (snapshotHour == null) return null;
+  return new Date(historyDate.getTime() + (snapshotHour - KYIV_OFFSET_HOURS) * 3_600_000);
+}
+
+/**
+ * A DONE task may be reopened only when the forecast still shows demand AND
+ * its stock snapshot was taken AFTER the task was completed — i.e. the shelf
+ * was measured empty again once the production had already happened. A
+ * forecast built on a snapshot from before the completion must not resurrect
+ * just-finished work.
+ */
+export function shouldReopenDone(
+  row: { recommendedToProduce: number; historyDate: Date; snapshotHour: number | null },
+  completedAt: Date | null
+): boolean {
+  if (row.recommendedToProduce <= 0) return false;
+  if (!completedAt) return false;
+  const snapshot = snapshotTimestamp(row.historyDate, row.snapshotHour);
+  if (!snapshot) return false;
+  return snapshot.getTime() > completedAt.getTime();
 }
 
 interface PriorityMapping {
