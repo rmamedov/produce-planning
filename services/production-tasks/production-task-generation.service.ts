@@ -8,6 +8,7 @@ import {
   CANCELLED_BY_COVERAGE_REASON,
   decideMutation,
   mapPriorityLevel,
+  nextMaxQuantity,
   operationalReadyAtFor,
   resolveNaming,
   shouldReopenDone
@@ -162,6 +163,7 @@ export const productionTaskGenerationService = {
           priority,
           priorityLevel: row.priority,
           quantity,
+          maxQuantity: quantity,
           coveredHours: row.coveredHours,
           currentStockQty: row.currentStockQty,
           operationalReadyAt,
@@ -176,6 +178,7 @@ export const productionTaskGenerationService = {
             priority,
             priorityLevel: row.priority,
             quantity,
+            maxQuantity: nextMaxQuantity(existing!.maxQuantity, quantity),
             coveredHours: row.coveredHours,
             currentStockQty: row.currentStockQty,
             reason,

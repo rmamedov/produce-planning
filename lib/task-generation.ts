@@ -67,6 +67,18 @@ export function shouldReopenDone(
   return snapshot.getTime() > completedAt.getTime();
 }
 
+/**
+ * Peak ordered quantity for the day. Forecast updates rewrite `quantity` (and
+ * cancellation zeroes it), so the report metric "what was actually ordered"
+ * lives in maxQuantity: it only ever grows.
+ */
+export function nextMaxQuantity(
+  existingMax: number | null | undefined,
+  quantity: number
+): number {
+  return Math.max(existingMax ?? 0, quantity);
+}
+
 interface PriorityMapping {
   priority: TaskPriorityLiteral;
   reason: string;

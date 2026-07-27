@@ -4,6 +4,7 @@ import {
   CANCELLED_BY_COVERAGE_REASON,
   decideMutation,
   mapPriorityLevel,
+  nextMaxQuantity,
   operationalReadyAtFor,
   resolveNaming,
   shouldReopenDone,
@@ -74,6 +75,24 @@ describe("shouldReopenDone", () => {
     expect(shouldReopenDone({ ...row, recommendedToProduce: 0 }, new Date("2026-07-09T11:14:00.000Z"))).toBe(false);
     expect(shouldReopenDone(row, null)).toBe(false);
     expect(shouldReopenDone({ ...row, snapshotHour: null }, new Date("2026-07-09T11:14:00.000Z"))).toBe(false);
+  });
+});
+
+describe("nextMaxQuantity", () => {
+  it("grows to a bigger order and keeps the peak on smaller ones", () => {
+    expect(nextMaxQuantity(5, 8)).toBe(8);
+    expect(nextMaxQuantity(8, 5)).toBe(8);
+    expect(nextMaxQuantity(8, 8)).toBe(8);
+  });
+
+  it("a forecast dropping the order to zero never erases the peak", () => {
+    expect(nextMaxQuantity(8, 0)).toBe(8);
+  });
+
+  it("treats a missing stored peak (legacy rows) as zero", () => {
+    expect(nextMaxQuantity(null, 3)).toBe(3);
+    expect(nextMaxQuantity(undefined, 3)).toBe(3);
+    expect(nextMaxQuantity(null, 0)).toBe(0);
   });
 });
 

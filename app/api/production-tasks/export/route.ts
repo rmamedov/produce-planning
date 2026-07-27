@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
       "Рівень пріоритету": t.priorityLevel,
       Статус: STATUS_LABELS[t.status],
       "До виробництва": t.quantity,
+      "Макс. замовлено за день": t.maxQuantity,
       "Покриття (год)": t.coveredHours,
       Залишок: t.currentStockQty ?? "",
       Опис: t.reason,

@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
         priority: task.priority,
         priority_level: task.priorityLevel,
         quantity: task.quantity,
+        max_quantity: task.maxQuantity,
         covered_hours: task.coveredHours,
         current_stock_qty: task.currentStockQty,
         reason: task.reason,

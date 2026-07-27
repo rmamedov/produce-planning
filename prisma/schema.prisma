@@ -224,6 +224,9 @@ model ProductionTask {
   priority      TaskPriority
   priorityLevel Int
   quantity      Float
+  // Peak ordered quantity for the day: never lowered by forecast updates and
+  // kept on cancellation, so reports show what was actually ordered.
+  maxQuantity   Float        @default(0)
   coveredHours  Float
   currentStockQty Float?
   reason        String
