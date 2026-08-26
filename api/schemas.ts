@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { BAKERY_TYPES } from "@/lib/task-badges";
+
 export const loginSchema = z.object({
   email: z.string().email("Вкажіть коректний email"),
   password: z.string().min(8, "Пароль має містити щонайменше 8 символів")
@@ -79,7 +81,24 @@ export const productionPlanPriorityItemSchema = z.object({
   // V2: sales_qty / produced_qty are now optional and may be null.
   sales_qty: z.number().min(0, "sales_qty не може бути від'ємним").nullable().optional(),
   produced_qty: z.number().min(0, "produced_qty не може бути від'ємним").nullable().optional(),
-  demand_before_qty: z.number().min(0, "demand_before_qty не може бути від'ємним")
+  demand_before_qty: z.number().min(0, "demand_before_qty не може бути від'ємним"),
+  // V2.1: promo/e-com attributes — all optional for backward compatibility.
+  is_guest_promise: z.boolean().optional(),
+  promo_mechanics: z.string().nullable().optional(),
+  ecom_orders_qty: z
+    .number()
+    .int("ecom_orders_qty має бути цілим числом")
+    .min(0, "ecom_orders_qty не може бути від'ємним")
+    .nullable()
+    .optional(),
+  bakery_type: z
+    .enum(BAKERY_TYPES, {
+      errorMap: () => ({
+        message: `bakery_type має бути одним із: ${BAKERY_TYPES.join(", ")}`
+      })
+    })
+    .nullable()
+    .optional()
 });
 
 export const productionPlanPriorityDateEntrySchema = z.object({

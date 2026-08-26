@@ -31,7 +31,11 @@ export async function POST(request: Request) {
         recommendedToProduce: item.recommended_to_produce,
         salesQty: item.sales_qty ?? null,
         producedQty: item.produced_qty ?? null,
-        demandBeforeQty: item.demand_before_qty
+        demandBeforeQty: item.demand_before_qty,
+        isGuestPromise: item.is_guest_promise ?? false,
+        promoMechanics: item.promo_mechanics || null,
+        ecomOrdersQty: item.ecom_orders_qty ?? null,
+        bakeryType: item.bakery_type ?? null
       }))
     );
 
@@ -99,6 +103,10 @@ export async function GET(request: NextRequest) {
         sales_qty: number | null;
         produced_qty: number | null;
         demand_before_qty: number;
+        is_guest_promise: boolean;
+        promo_mechanics: string | null;
+        ecom_orders_qty: number | null;
+        bakery_type: string | null;
       }>;
     }>();
 
@@ -126,7 +134,11 @@ export async function GET(request: NextRequest) {
         recommended_to_produce: row.recommendedToProduce,
         sales_qty: row.salesQty,
         produced_qty: row.producedQty,
-        demand_before_qty: row.demandBeforeQty
+        demand_before_qty: row.demandBeforeQty,
+        is_guest_promise: row.isGuestPromise,
+        promo_mechanics: row.promoMechanics,
+        ecom_orders_qty: row.ecomOrdersQty,
+        bakery_type: row.bakeryType
       });
     }
 

@@ -16,6 +16,10 @@ interface IngestItem {
   salesQty: number | null;
   producedQty: number | null;
   demandBeforeQty: number;
+  isGuestPromise: boolean;
+  promoMechanics: string | null;
+  ecomOrdersQty: number | null;
+  bakeryType: string | null;
 }
 
 interface ListFilters {
@@ -49,7 +53,11 @@ export const productionPlanPriorityRepository = {
           recommendedToProduce: item.recommendedToProduce,
           salesQty: item.salesQty,
           producedQty: item.producedQty,
-          demandBeforeQty: item.demandBeforeQty
+          demandBeforeQty: item.demandBeforeQty,
+          isGuestPromise: item.isGuestPromise,
+          promoMechanics: item.promoMechanics,
+          ecomOrdersQty: item.ecomOrdersQty,
+          bakeryType: item.bakeryType
         },
         create: item
       })

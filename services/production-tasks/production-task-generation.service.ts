@@ -166,6 +166,10 @@ export const productionTaskGenerationService = {
           maxQuantity: quantity,
           coveredHours: row.coveredHours,
           currentStockQty: row.currentStockQty,
+          isGuestPromise: row.isGuestPromise,
+          promoMechanics: row.promoMechanics,
+          ecomOrdersQty: row.ecomOrdersQty,
+          bakeryType: row.bakeryType,
           operationalReadyAt,
           reason
         });
@@ -181,6 +185,10 @@ export const productionTaskGenerationService = {
             maxQuantity: nextMaxQuantity(existing!.maxQuantity, quantity),
             coveredHours: row.coveredHours,
             currentStockQty: row.currentStockQty,
+            isGuestPromise: row.isGuestPromise,
+            promoMechanics: row.promoMechanics,
+            ecomOrdersQty: row.ecomOrdersQty,
+            bakeryType: row.bakeryType,
             reason,
             lagerName,
             lagerUnit,

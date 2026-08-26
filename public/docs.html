@@ -589,7 +589,7 @@
   <!-- Sidebar -->
   <nav class="sidebar">
     <div class="sidebar-logo">Production Plan API</div>
-    <span class="sidebar-version">v2.0</span>
+    <span class="sidebar-version">v2.1</span>
 
     <div class="sidebar-section">Overview</div>
     <a href="#overview">Introduction</a>
@@ -645,6 +645,7 @@
         <p>
           <strong>1.</strong> New optional <code>lagerfullname</code> on each item (product full name).<br>
           <strong>2.</strong> <code>sales_qty</code> and <code>produced_qty</code> are now optional and may be <code>null</code>.<br>
+          <strong>3.</strong> <em>v2.1:</em> new optional item fields — <code>is_guest_promise</code>, <code>promo_mechanics</code>, <code>ecom_orders_qty</code>, <code>bakery_type</code> ('Пекарня' | 'Допікання' | 'Кондитерська').<br>
           <strong>3.</strong> New <code>department_id</code> at the POST body root + as a GET filter.<br>
           <strong>4.</strong> GET responses now include <code>lagerfullname</code>, <code>department_id</code> and <code>department_name</code>.
         </p>
@@ -686,6 +687,10 @@
             <tr><td><code>sales_qty</code></td><td><span class="type-tag">number|null</span></td><td>Actual sales in past hours (nullable in v2)</td></tr>
             <tr><td><code>produced_qty</code></td><td><span class="type-tag">number|null</span></td><td>Quantity received via receipts in past hours (nullable in v2)</td></tr>
             <tr><td><code>demand_before_qty</code></td><td><span class="type-tag">number</span></td><td>Forecasted demand for hours before the snapshot</td></tr>
+            <tr><td><code>is_guest_promise</code></td><td><span class="type-tag">boolean</span></td><td>Whether the «guest promise» applies to the article (v2.1)</td></tr>
+            <tr><td><code>promo_mechanics</code></td><td><span class="type-tag">string|null</span></td><td>Active promo mechanics, slash-separated, e.g. "знижка/кешбек" (v2.1)</td></tr>
+            <tr><td><code>ecom_orders_qty</code></td><td><span class="type-tag">integer|null</span></td><td>Number of e-com orders with this article (v2.1)</td></tr>
+            <tr><td><code>bakery_type</code></td><td><span class="type-tag">string|null</span></td><td>'Пекарня' | 'Допікання' | 'Кондитерська' (v2.1)</td></tr>
           </tbody>
         </table>
       </div>
@@ -792,6 +797,10 @@
             <tr><td><code>sales_qty</code></td><td><span class="type-tag">number|null</span></td><td><span class="optional-tag">optional</span></td><td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2</span> Actual sales (&ge;0) — may be null/omitted</td></tr>
             <tr><td><code>produced_qty</code></td><td><span class="type-tag">number|null</span></td><td><span class="optional-tag">optional</span></td><td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2</span> Produced quantity (&ge;0) — may be null/omitted</td></tr>
             <tr><td><code>demand_before_qty</code></td><td><span class="type-tag">number</span></td><td><span class="required-tag">required</span></td><td>Demand before snapshot (&ge;0)</td></tr>
+            <tr><td><code>is_guest_promise</code></td><td><span class="type-tag">boolean</span></td><td><span class="optional-tag">optional</span></td><td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2.1</span> Guest promise flag (default false)</td></tr>
+            <tr><td><code>promo_mechanics</code></td><td><span class="type-tag">string|null</span></td><td><span class="optional-tag">optional</span></td><td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2.1</span> Promo mechanics via "/" — empty means no promo</td></tr>
+            <tr><td><code>ecom_orders_qty</code></td><td><span class="type-tag">integer|null</span></td><td><span class="optional-tag">optional</span></td><td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2.1</span> Integer &ge;0 — e-com orders count</td></tr>
+            <tr><td><code>bakery_type</code></td><td><span class="type-tag">string|null</span></td><td><span class="optional-tag">optional</span></td><td><span class="type-tag" style="background:var(--green-dim);color:var(--green)">v2.1</span> Strictly 'Пекарня' | 'Допікання' | 'Кондитерська' — else 400</td></tr>
           </tbody>
         </table>
       </div>
@@ -823,7 +832,11 @@
             <span class="json-key">"recommended_to_produce"</span>: <span class="json-num">9.8</span>,
             <span class="json-key">"sales_qty"</span>: <span class="json-null">null</span>,
             <span class="json-key">"produced_qty"</span>: <span class="json-num">3.0</span>,
-            <span class="json-key">"demand_before_qty"</span>: <span class="json-num">6.3</span>
+            <span class="json-key">"demand_before_qty"</span>: <span class="json-num">6.3</span>,
+            <span class="json-key">"is_guest_promise"</span>: <span class="json-num">true</span>,
+            <span class="json-key">"promo_mechanics"</span>: <span class="json-str">"знижка/кешбек"</span>,
+            <span class="json-key">"ecom_orders_qty"</span>: <span class="json-num">14</span>,
+            <span class="json-key">"bakery_type"</span>: <span class="json-str">"Пекарня"</span>
           }
         ]
       }
@@ -955,7 +968,11 @@ curl "http://165.245.253.31/api/production-plan-priority?filial_id=3322&amp;hist
           <span class="json-key">"recommended_to_produce"</span>: <span class="json-num">9.8</span>,
           <span class="json-key">"sales_qty"</span>: <span class="json-null">null</span>,
           <span class="json-key">"produced_qty"</span>: <span class="json-num">3.0</span>,
-          <span class="json-key">"demand_before_qty"</span>: <span class="json-num">6.3</span>
+          <span class="json-key">"demand_before_qty"</span>: <span class="json-num">6.3</span>,
+          <span class="json-key">"is_guest_promise"</span>: <span class="json-num">false</span>,
+          <span class="json-key">"promo_mechanics"</span>: <span class="json-null">null</span>,
+          <span class="json-key">"ecom_orders_qty"</span>: <span class="json-null">null</span>,
+          <span class="json-key">"bakery_type"</span>: <span class="json-str">"Пекарня"</span>
         }
       ]
     },
@@ -1012,6 +1029,10 @@ curl "http://165.245.253.31/api/production-plan-priority?filial_id=3322&amp;hist
             <tr><td><code>sales_qty</code></td><td><span class="type-tag">number|null</span></td><td>Actual sales in past hours (nullable)</td></tr>
             <tr><td><code>produced_qty</code></td><td><span class="type-tag">number|null</span></td><td>Qty received in past hours (nullable)</td></tr>
             <tr><td><code>demand_before_qty</code></td><td><span class="type-tag">number</span></td><td>Demand before snapshot hour</td></tr>
+            <tr><td><code>is_guest_promise</code></td><td><span class="type-tag">boolean</span></td><td>Guest promise flag (v2.1)</td></tr>
+            <tr><td><code>promo_mechanics</code></td><td><span class="type-tag">string|null</span></td><td>Promo mechanics via "/" (v2.1)</td></tr>
+            <tr><td><code>ecom_orders_qty</code></td><td><span class="type-tag">integer|null</span></td><td>E-com orders count (v2.1)</td></tr>
+            <tr><td><code>bakery_type</code></td><td><span class="type-tag">string|null</span></td><td>Bakery type (v2.1)</td></tr>
           </tbody>
         </table>
       </div>

@@ -198,6 +198,11 @@ model ProductionPlanPriority {
   salesQty              Float?
   producedQty           Float?
   demandBeforeQty       Float
+  // V2.1: promo/e-com attributes of the article.
+  isGuestPromise        Boolean  @default(false)
+  promoMechanics        String?
+  ecomOrdersQty         Int?
+  bakeryType            String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   productionTask        ProductionTask?
@@ -229,6 +234,11 @@ model ProductionTask {
   maxQuantity   Float        @default(0)
   coveredHours  Float
   currentStockQty Float?
+  // V2.1: copied from the plan row so cards need no join and archives keep them.
+  isGuestPromise  Boolean    @default(false)
+  promoMechanics  String?
+  ecomOrdersQty   Int?
+  bakeryType      String?
   reason        String
   cancelReason  String?
   operationalReadyAt DateTime?

@@ -18,6 +18,14 @@ import {
   resolveDateFilter,
   resolveDepartmentSelection
 } from "@/lib/kitchen-filters";
+import {
+  BAKERY_TYPES,
+  ecomOrdersLabel,
+  hasPromo,
+  matchesBakeryType,
+  promoMechanicsList,
+  resolveBakeryTypeSelection
+} from "@/lib/task-badges";
 import { sortKitchenTasks } from "@/lib/task-sorting";
 import styles from "./production-kitchen-board.module.css";
 
@@ -37,6 +45,10 @@ interface ProductionTask {
   quantity: number;
   covered_hours: number;
   current_stock_qty: number | null;
+  is_guest_promise: boolean;
+  promo_mechanics: string | null;
+  ecom_orders_qty: number | null;
+  bakery_type: string | null;
   reason: string;
   operational_ready_at: string | null;
   is_overdue: boolean;
@@ -68,6 +80,7 @@ const DATE_STORAGE_KEY = "kitchen.selectedDate";
 const VIEW_STORAGE_KEY = "kitchen.viewMode";
 const STATUS_STORAGE_KEY = "kitchen.selectedStatus";
 const PRIORITY_STORAGE_KEY = "kitchen.selectedPriority";
+const BAKERY_STORAGE_KEY = "kitchen.selectedBakeryType";
 
 const CANNOT_PRODUCE_REASONS = [
   "Недостатньо сировини",
@@ -221,6 +234,26 @@ const TaskCard = memo(function TaskCard({
     <span className={prioClass}>{meta.label}</span>
   );
 
+  // V2.1 article badges: one combined «Промо» badge (mechanics in the
+  // tooltip) plus «Обіцянка гостю». Rendered only when there is anything.
+  const promo = hasPromo(task.promo_mechanics);
+  const articleTags =
+    promo || task.is_guest_promise ? (
+      <div className={styles.tagRow}>
+        {promo ? (
+          <span
+            className={styles.tagPromo}
+            title={`Акції: ${promoMechanicsList(task.promo_mechanics).join(", ")}`}
+          >
+            Промо
+          </span>
+        ) : null}
+        {task.is_guest_promise ? <span className={styles.tagGuest}>Обіцянка гостю</span> : null}
+      </div>
+    ) : null;
+
+  const ecomLabel = ecomOrdersLabel(task.ecom_orders_qty);
+
   const kebab = (
     <div className={styles.kebabWrap}>
       <button
@@ -313,7 +346,14 @@ const TaskCard = memo(function TaskCard({
             {getFilialName(task.filial_id)}
             <span className={styles.sep}>•</span>
             {task.history_date}
+            {ecomLabel ? (
+              <>
+                <span className={styles.sep}>•</span>
+                {ecomLabel}
+              </>
+            ) : null}
           </p>
+          {articleTags}
         </div>
 
         {badge}
@@ -380,6 +420,8 @@ const TaskCard = memo(function TaskCard({
         {task.history_date}
       </p>
 
+      {articleTags}
+
       <div className={styles.metrics}>
         <div className={styles.metric}>
           <span className={styles.metricLabel}>Виробити</span>
@@ -406,6 +448,8 @@ const TaskCard = memo(function TaskCard({
           </span>
         </p>
       ) : null}
+
+      {ecomLabel ? <p className={styles.ecomLine}>{ecomLabel}</p> : null}
 
       {readyAt ? (
         <div className={styles.readiness}>
@@ -475,6 +519,7 @@ export function ProductionKitchenBoard() {
   const [selectedDate, setSelectedDate] = useState("today");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedPriority, setSelectedPriority] = useState("all");
+  const [selectedBakery, setSelectedBakery] = useState("all");
   const [dateMenuOpen, setDateMenuOpen] = useState(false);
   const [view, setView] = useState<ViewMode>("grid");
   const [now, setNow] = useState(() => Date.now());
@@ -507,6 +552,7 @@ export function ProductionKitchenBoard() {
     if (status) setSelectedStatus(status);
     const priority = window.localStorage.getItem(PRIORITY_STORAGE_KEY);
     if (priority) setSelectedPriority(priority);
+    setSelectedBakery(resolveBakeryTypeSelection(window.localStorage.getItem(BAKERY_STORAGE_KEY)));
   }, []);
 
   // Explicit operator choices persist; the auto-resolved defaults do not, so
@@ -544,6 +590,12 @@ export function ProductionKitchenBoard() {
       window.localStorage.setItem(PRIORITY_STORAGE_KEY, selectedPriority);
     }
   }, [selectedPriority]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(BAKERY_STORAGE_KEY, selectedBakery);
+    }
+  }, [selectedBakery]);
 
   const queryClient = useQueryClient();
   // Fetch only active tasks — the board never shows DONE/CANCELLED, and the
@@ -646,9 +698,23 @@ export function ProductionKitchenBoard() {
   // filter stays correct across midnight without a reload.
   const resolvedDate = resolveDateFilter(selectedDate, new Date(now));
 
+  // The bakery-type filter only makes sense where the forecast supplies the
+  // field (Пекарня); hide it when the current branch/department has none.
+  const bakeryFilterVisible = useMemo(
+    () =>
+      activeTasks.some(
+        (task) =>
+          task.bakery_type != null &&
+          String(task.filial_id) === selectedBranch &&
+          (selectedDepartment === "all" || String(task.department_id) === selectedDepartment)
+      ),
+    [activeTasks, selectedBranch, selectedDepartment]
+  );
+
   const filtered = activeTasks.filter((task) => {
     if (String(task.filial_id) !== selectedBranch) return false;
     if (selectedDepartment !== "all" && String(task.department_id) !== selectedDepartment) return false;
+    if (bakeryFilterVisible && !matchesBakeryType(task.bakery_type, selectedBakery)) return false;
     if (selectedStatus !== "all" && task.status !== selectedStatus) return false;
     if (selectedPriority !== "all") {
       // "Нормальний" (MEDIUM) also covers LOW, which displays as Нормальний.
@@ -759,6 +825,28 @@ export function ProductionKitchenBoard() {
             <ChevronIcon />
           </span>
         </div>
+
+        {bakeryFilterVisible ? (
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>Випічка</span>
+            <select
+              className={styles.fieldSelect}
+              aria-label="Тип випічки"
+              value={selectedBakery}
+              onChange={(event) => setSelectedBakery(event.target.value)}
+            >
+              <option value="all">Усі типи</option>
+              {BAKERY_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+            <span className={styles.fieldChevron}>
+              <ChevronIcon />
+            </span>
+          </div>
+        ) : null}
 
         <div className={styles.dateFieldWrap}>
           <button
