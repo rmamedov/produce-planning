@@ -138,6 +138,15 @@ export const productionTaskQuerySchema = z.object({
   department_id: z.coerce.number().int().positive().optional()
 });
 
+export const productionTaskCompleteSchema = z.object({
+  produced_qty: z
+    .number()
+    .positive("produced_qty має бути більшим за 0")
+    .max(99999, "produced_qty занадто велике")
+    .nullable()
+    .optional()
+});
+
 export const productionTaskGenerateSchema = z.object({
   filial_id: z.coerce.number().int().positive("filial_id має бути додатним цілим числом").optional()
 });

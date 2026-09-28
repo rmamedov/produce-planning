@@ -19,6 +19,18 @@ import {
   resolveDepartmentSelection
 } from "@/lib/kitchen-filters";
 import {
+  appendComma,
+  appendDigit,
+  backspaceValue,
+  canConfirmQuantity,
+  clearValue,
+  formatQuantity,
+  allowsDecimal,
+  parseQuantity,
+  quantityHint,
+  stepValue
+} from "@/lib/produced-quantity-input";
+import {
   BAKERY_TYPES,
   ecomOrdersLabel,
   hasPromo,
@@ -193,8 +205,12 @@ const TaskCard = memo(function TaskCard({
     onSuccess: onChanged
   });
 
-  const complete = useApiMutation({
-    mutationFn: () => apiClient(`/api/production-tasks/${task.id}/complete`, { method: "POST" }),
+  const complete = useApiMutation<unknown, number>({
+    mutationFn: (producedQty: number) =>
+      apiClient(`/api/production-tasks/${task.id}/complete`, {
+        method: "POST",
+        body: JSON.stringify({ produced_qty: producedQty })
+      }),
     successMessage: "Задачу виконано",
     onSuccess: onChanged
   });
@@ -211,6 +227,37 @@ const TaskCard = memo(function TaskCard({
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [reasonOpen, setReasonOpen] = useState(false);
+
+  // "Скільки виготовлено?" popup: string value ("1,5" for кг) prefilled with
+  // the ordered quantity; the first numpad key replaces the prefill.
+  const [completeOpen, setCompleteOpen] = useState(false);
+  const [qtyValue, setQtyValue] = useState("0");
+  const qtyTypedRef = useRef(false);
+  const qtyUnit = task.unit ?? "кг";
+
+  const openComplete = () => {
+    setQtyValue(formatQuantity(task.quantity));
+    qtyTypedRef.current = false;
+    setCompleteOpen(true);
+  };
+  const pressDigit = (digit: string) => {
+    // Read the flag BEFORE setState: the updater runs later, when the ref is
+    // already flipped, so reading it inside would never replace the prefill.
+    const typed = qtyTypedRef.current;
+    qtyTypedRef.current = true;
+    setQtyValue((value) => appendDigit(typed ? value : clearValue(), digit, qtyUnit));
+  };
+  const pressComma = () => {
+    const typed = qtyTypedRef.current;
+    qtyTypedRef.current = true;
+    setQtyValue((value) => appendComma(typed ? value : clearValue(), qtyUnit));
+  };
+  // Steppers and С behave like the approved mock: they show a result, and
+  // the next numpad digit starts a fresh number instead of appending to it.
+  const editQty = (next: (value: string) => string, keepsTyping = false) => {
+    setQtyValue(next);
+    qtyTypedRef.current = keepsTyping;
+  };
 
   const busy = start.isPending || complete.isPending || cancel.isPending;
   const inProgress = task.status === "IN_PROGRESS";
@@ -289,7 +336,7 @@ const TaskCard = memo(function TaskCard({
     <button
       type="button"
       className={`${styles.btnStart} ${styles.btnComplete}`}
-      onClick={() => complete.mutate()}
+      onClick={openComplete}
       disabled={busy}
     >
       <span className={styles.play}>
@@ -325,6 +372,98 @@ const TaskCard = memo(function TaskCard({
           ))}
         </div>
         <button type="button" className={styles.modalCancel} onClick={() => setReasonOpen(false)}>
+          Скасувати
+        </button>
+      </div>
+    </div>
+  ) : null;
+
+  const hint = quantityHint(qtyValue, task.quantity);
+  const hintText =
+    hint === "zero"
+      ? "Кількість не може бути 0"
+      : hint === "differs"
+        ? `Відрізняється від замовлення (${task.quantity} ${qtyUnit})`
+        : "Заповнено як у замовленні — зміни, якщо виготовили інакше";
+
+  const completeModal = completeOpen ? (
+    <div className={styles.modalOverlay} onClick={() => setCompleteOpen(false)}>
+      <div className={`${styles.modal} ${styles.qtyModal}`} onClick={(event) => event.stopPropagation()}>
+        <p className={styles.qtyTitle}>Скільки виготовлено?</p>
+        <p className={styles.qtySub}>{task.lager_name ?? `Lager ${task.lager_id}`}</p>
+        <span className={styles.qtyOrderChip}>
+          Замовлено: {task.quantity} {qtyUnit}
+        </span>
+
+        <div className={styles.qtyRow}>
+          <button
+            type="button"
+            className={styles.qtyStep}
+            aria-label="Менше"
+            onClick={() => editQty((value) => stepValue(value, -1, qtyUnit))}
+          >
+            −
+          </button>
+          <div className={styles.qtyValueBox}>
+            <span className={styles.qtyValue}>{qtyValue}</span>
+            <span className={styles.qtyUnit}>{qtyUnit}</span>
+          </div>
+          <button
+            type="button"
+            className={styles.qtyStep}
+            aria-label="Більше"
+            onClick={() => editQty((value) => stepValue(value, 1, qtyUnit))}
+          >
+            +
+          </button>
+        </div>
+
+        <p className={hint === "match" ? styles.qtyHint : styles.qtyHintWarn}>{hintText}</p>
+
+        <div className={styles.qtyPad}>
+          {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((digit) => (
+            <button key={digit} type="button" className={styles.qtyKey} onClick={() => pressDigit(digit)}>
+              {digit}
+            </button>
+          ))}
+          {allowsDecimal(qtyUnit) ? (
+            <button type="button" className={`${styles.qtyKey} ${styles.qtyKeyMut}`} onClick={pressComma}>
+              ,
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`${styles.qtyKey} ${styles.qtyKeyMut}`}
+              aria-label="Очистити"
+              onClick={() => editQty(() => clearValue())}
+            >
+              С
+            </button>
+          )}
+          <button type="button" className={styles.qtyKey} onClick={() => pressDigit("0")}>
+            0
+          </button>
+          <button
+            type="button"
+            className={`${styles.qtyKey} ${styles.qtyKeyMut}`}
+            aria-label="Стерти"
+            onClick={() => editQty(backspaceValue, true)}
+          >
+            ⌫
+          </button>
+        </div>
+
+        <button
+          type="button"
+          className={styles.qtyConfirm}
+          disabled={busy || !canConfirmQuantity(qtyValue)}
+          onClick={() =>
+            complete.mutate(parseQuantity(qtyValue), { onSuccess: () => setCompleteOpen(false) })
+          }
+        >
+          ✓ Підтвердити — виконано
+        </button>
+        <button type="button" className={styles.modalCancel} onClick={() => setCompleteOpen(false)}>
           Скасувати
         </button>
       </div>
@@ -397,6 +536,7 @@ const TaskCard = memo(function TaskCard({
         </div>
 
         {modal}
+        {completeModal}
       </article>
     );
   }
@@ -466,6 +606,7 @@ const TaskCard = memo(function TaskCard({
 
       {actionButton}
       {modal}
+      {completeModal}
     </article>
   );
 });

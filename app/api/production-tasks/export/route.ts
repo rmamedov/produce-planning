@@ -77,6 +77,7 @@ export async function GET(request: NextRequest) {
       Статус: STATUS_LABELS[t.status],
       "До виробництва": t.quantity,
       "Макс. замовлено за день": t.maxQuantity,
+      Виготовлено: t.producedQty ?? "",
       "Тип випічки": t.bakeryType ?? "",
       Акції: t.promoMechanics ?? "",
       "Обіцянка гостю": t.isGuestPromise ? "так" : "",

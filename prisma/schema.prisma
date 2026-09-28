@@ -232,6 +232,8 @@ model ProductionTask {
   // Peak ordered quantity for the day: never lowered by forecast updates and
   // kept on cancellation, so reports show what was actually ordered.
   maxQuantity   Float        @default(0)
+  // Actually produced quantity, reported by the operator on completion.
+  producedQty   Float?
   coveredHours  Float
   currentStockQty Float?
   // V2.1: copied from the plan row so cards need no join and archives keep them.

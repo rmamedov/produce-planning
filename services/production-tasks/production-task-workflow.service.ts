@@ -27,7 +27,7 @@ export const productionTaskWorkflowService = {
     return updated;
   },
 
-  async complete(id: string) {
+  async complete(id: string, producedQty?: number | null) {
     const task = await requireTask(id);
 
     if (task.status !== TaskStatus.NEW && task.status !== TaskStatus.IN_PROGRESS) {
@@ -37,7 +37,8 @@ export const productionTaskWorkflowService = {
     const updated = await productionTaskRepository.update(id, {
       status: TaskStatus.DONE,
       startedAt: task.startedAt ?? new Date(),
-      completedAt: new Date()
+      completedAt: new Date(),
+      producedQty: producedQty ?? null
     });
     productionTaskEvents.publish("completed");
     return updated;
