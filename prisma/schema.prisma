@@ -234,6 +234,10 @@ model ProductionTask {
   maxQuantity   Float        @default(0)
   // Actually produced quantity, reported by the operator on completion.
   producedQty   Float?
+  // Set when the completed task was included in a Рубікон transfer document;
+  // documented tasks leave the «Виконані» tab.
+  documentedAt  DateTime?
+  transferId    String?
   coveredHours  Float
   currentStockQty Float?
   // V2.1: copied from the plan row so cards need no join and archives keep them.

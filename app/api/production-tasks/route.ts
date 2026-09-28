@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
       history_date: searchParams.get("history_date") ?? undefined,
       status: searchParams.get("status") ?? undefined,
       priority: searchParams.get("priority") ?? undefined,
-      department_id: searchParams.get("department_id") ?? undefined
+      department_id: searchParams.get("department_id") ?? undefined,
+      documented: searchParams.get("documented") ?? undefined
     });
 
     const tasks = await productionTaskRepository.list({
@@ -25,7 +26,8 @@ export async function GET(request: NextRequest) {
       departmentId: query.department_id,
       historyDate: query.history_date ? new Date(query.history_date) : undefined,
       status: query.status ? (query.status.split(",") as TaskStatus[]) : undefined,
-      priority: query.priority as TaskPriority | undefined
+      priority: query.priority as TaskPriority | undefined,
+      documented: query.documented ? query.documented === "true" : undefined
     });
 
     // Lazily backfill product name + unit for tasks created before they were
@@ -84,7 +86,9 @@ export async function GET(request: NextRequest) {
         is_overdue: task.operationalReadyAt ? task.operationalReadyAt.getTime() < Date.now() : false,
         created_at: task.createdAt.toISOString(),
         started_at: task.startedAt?.toISOString() ?? null,
-        completed_at: task.completedAt?.toISOString() ?? null
+        completed_at: task.completedAt?.toISOString() ?? null,
+        documented_at: task.documentedAt?.toISOString() ?? null,
+        transfer_id: task.transferId
       }))
     });
   } catch (error) {

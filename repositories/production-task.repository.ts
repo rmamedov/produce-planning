@@ -8,6 +8,8 @@ interface ListFilters {
   historyDate?: Date;
   status?: TaskStatus | TaskStatus[];
   priority?: TaskPriority;
+  /** true → only documented, false → only NOT yet documented. */
+  documented?: boolean;
 }
 
 export const productionTaskRepository = {
@@ -28,6 +30,9 @@ export const productionTaskRepository = {
     }
     if (filters.priority) {
       where.priority = filters.priority;
+    }
+    if (filters.documented !== undefined) {
+      where.documentedAt = filters.documented ? { not: null } : null;
     }
 
     return prisma.productionTask.findMany({

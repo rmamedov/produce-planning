@@ -135,7 +135,16 @@ export const productionTaskQuerySchema = z.object({
     )
     .optional(),
   priority: z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW"]).optional(),
-  department_id: z.coerce.number().int().positive().optional()
+  department_id: z.coerce.number().int().positive().optional(),
+  // "false" → only tasks not yet included in a transfer document.
+  documented: z.enum(["true", "false"]).optional()
+});
+
+export const productionTaskDocumentSchema = z.object({
+  task_ids: z
+    .array(z.string().min(1))
+    .min(1, "Виберіть хоча б одну задачу")
+    .max(500, "Занадто багато задач за один документ")
 });
 
 export const productionTaskCompleteSchema = z.object({

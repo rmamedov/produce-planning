@@ -30,6 +30,7 @@ import {
   quantityHint,
   stepValue
 } from "@/lib/produced-quantity-input";
+import { documentQuantity, documentTotals, pruneDeselected } from "@/lib/task-documenting";
 import {
   BAKERY_TYPES,
   ecomOrdersLabel,
@@ -64,6 +65,10 @@ interface ProductionTask {
   reason: string;
   operational_ready_at: string | null;
   is_overdue: boolean;
+  produced_qty: number | null;
+  completed_at: string | null;
+  documented_at: string | null;
+  transfer_id: string | null;
 }
 
 interface ProductionTasksResponse {
@@ -748,6 +753,28 @@ export function ProductionKitchenBoard() {
     { refetchInterval: 20000 }
   );
 
+  // «Виконані» tab: completed tasks not yet put into a transfer document.
+  const [activeTab, setActiveTab] = useState<"board" | "done">("board");
+  const doneQuery = useApiQuery<ProductionTasksResponse>(
+    ["production-tasks", "done"],
+    "/api/production-tasks?status=DONE&documented=false",
+    { refetchInterval: 20000 }
+  );
+
+  // Default selection is "everything checked": we store the DESELECTED ids,
+  // so tasks completed later arrive checked automatically.
+  const [deselected, setDeselected] = useState<Set<string>>(new Set());
+  const documentMutation = useApiMutation<{ transfer_id: string | null }, string[]>({
+    mutationFn: (taskIds) =>
+      apiClient("/api/production-tasks/document", {
+        method: "POST",
+        body: JSON.stringify({ task_ids: taskIds })
+      }),
+    successMessage: "Трансфер сформовано і передано в Рубікон",
+    invalidateKeys: [["production-tasks"]],
+    onSuccess: () => setDeselected(new Set())
+  });
+
   // Default the branch once tasks are known: 3361 when it has tasks,
   // otherwise the first filial that does. A stored choice wins (see above).
   useEffect(() => {
@@ -878,6 +905,50 @@ export function ProductionKitchenBoard() {
     [filtered, selectedPriority]
   );
 
+  // «Виконані»: same filial/department context as the board, ALL dates —
+  // yesterday's undocumented completions must not get lost.
+  const doneTasks = useMemo(() => {
+    const rows = (doneQuery.data?.tasks ?? []).filter(
+      (task) =>
+        String(task.filial_id) === selectedBranch &&
+        (selectedDepartment === "all" || String(task.department_id) === selectedDepartment)
+    );
+    return rows.sort((a, b) => (a.completed_at ?? "").localeCompare(b.completed_at ?? ""));
+  }, [doneQuery.data, selectedBranch, selectedDepartment]);
+
+  // Keep the deselection set free of ids that left the tab (documented
+  // elsewhere or refetched away).
+  useEffect(() => {
+    setDeselected((current) => {
+      const pruned = pruneDeselected(current, doneTasks.map((task) => task.id));
+      return pruned.size === current.size ? current : pruned;
+    });
+  }, [doneTasks]);
+
+  const selectedDone = useMemo(
+    () => doneTasks.filter((task) => !deselected.has(task.id)),
+    [doneTasks, deselected]
+  );
+  const doneTotals = useMemo(() => documentTotals(selectedDone), [selectedDone]);
+  const allDoneSelected = doneTasks.length > 0 && selectedDone.length === doneTasks.length;
+
+  const toggleDoneTask = useCallback((id: string) => {
+    setDeselected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleAllDone = useCallback(() => {
+    setDeselected((current) =>
+      current.size === 0 && doneTasks.length > 0
+        ? new Set(doneTasks.map((task) => task.id))
+        : new Set()
+    );
+  }, [doneTasks]);
+
   return (
     <>
       <InstallPrompt />
@@ -887,7 +958,33 @@ export function ProductionKitchenBoard() {
           <Clock />
         </div>
 
+        <div className={styles.tabsBar} role="tablist" aria-label="Розділи">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "board"}
+            className={activeTab === "board" ? styles.tabActive : styles.tabBtn}
+            onClick={() => setActiveTab("board")}
+          >
+            До виробництва
+            <span className={styles.tabCount}>{activeTasks.length}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "done"}
+            className={activeTab === "done" ? styles.tabActive : styles.tabBtn}
+            onClick={() => setActiveTab("done")}
+          >
+            Виконані
+            <span className={doneTasks.length ? styles.tabCountHot : styles.tabCount}>
+              {doneTasks.length}
+            </span>
+          </button>
+        </div>
+
         <div className={styles.controls}>
+          {activeTab === "board" ? (
           <div className={styles.viewToggle} role="group" aria-label="Вигляд">
             <button
               type="button"
@@ -908,6 +1005,7 @@ export function ProductionKitchenBoard() {
               <ListIcon />
             </button>
           </div>
+          ) : null}
 
           <span className={styles.statusPill} title="Інтерфейс оптимізовано під роздільну здатність 1340×800">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -927,6 +1025,111 @@ export function ProductionKitchenBoard() {
         </div>
       </header>
 
+      {activeTab === "done" ? (
+        <>
+          {doneTasks.length ? (
+            <>
+              <div className={styles.doneSelectBar}>
+                <span className={styles.doneSelectInfo}>
+                  Вибрано <b>{selectedDone.length}</b> із <b>{doneTasks.length}</b> виконаних задач
+                </span>
+                <button type="button" className={styles.doneLinkBtn} onClick={toggleAllDone}>
+                  {allDoneSelected ? "Зняти вибір" : "Вибрати всі"}
+                </button>
+              </div>
+
+              <div className={styles.doneList}>
+                {doneTasks.map((task) => {
+                  const checked = !deselected.has(task.id);
+                  const made = documentQuantity(task);
+                  const differs = task.produced_qty != null && task.produced_qty !== task.quantity;
+                  return (
+                    <div
+                      key={task.id}
+                      role="checkbox"
+                      aria-checked={checked}
+                      tabIndex={0}
+                      className={checked ? styles.doneRow : styles.doneRowOff}
+                      onClick={() => toggleDoneTask(task.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === " " || event.key === "Enter") {
+                          event.preventDefault();
+                          toggleDoneTask(task.id);
+                        }
+                      }}
+                    >
+                      <span className={styles.doneCb} aria-hidden>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20 6L9 17l-5-5" />
+                        </svg>
+                      </span>
+                      <div className={styles.doneMain}>
+                        <p className={styles.doneTitle}>{task.lager_name ?? `Lager ${task.lager_id}`}</p>
+                        <p className={styles.doneMeta}>
+                          SKU {task.lager_id}
+                          <span className={styles.sep}>•</span>
+                          {getFilialName(task.filial_id)}
+                          <span className={styles.sep}>•</span>
+                          {task.history_date}
+                        </p>
+                      </div>
+                      <div className={styles.doneQtyCol}>
+                        <span className={styles.doneQtyMade}>
+                          {String(made).replace(".", ",")}
+                          <small> {task.unit ?? "кг"}</small>
+                        </span>
+                        <span className={differs ? styles.doneQtyPlanDiff : styles.doneQtyPlan}>
+                          замовлено {String(task.quantity).replace(".", ",")}
+                        </span>
+                      </div>
+                      {task.completed_at ? (
+                        <span className={styles.doneAt}>✓ {formatReadyAt(new Date(task.completed_at))}</span>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className={styles.doneFooter}>
+                <div className={styles.doneFooterIn}>
+                  <span className={styles.doneFooterSum}>
+                    До документа: <b>{doneTotals.count} задач</b>
+                    {" · "}
+                    {String(doneTotals.pcs).replace(".", ",")} шт + {String(doneTotals.kg).replace(".", ",")} кг
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.docBtn}
+                    disabled={selectedDone.length === 0 || documentMutation.isPending}
+                    onClick={() => documentMutation.mutate(selectedDone.map((task) => task.id))}
+                  >
+                    {documentMutation.isPending
+                      ? "Формується…"
+                      : `Оформити документ (${selectedDone.length})`}
+                  </button>
+                  <p className={styles.doneFooterHint}>
+                    Сформує трансфер у Рубікон та передасть дані про виготовлення аналітикам
+                  </p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className={styles.stateBox}>
+              <div className={styles.stateIconDone}>
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+              </div>
+              <h2 className={styles.stateTitle}>Всі виконані задачі оформлені</h2>
+              <p className={styles.stateText}>
+                Коли кухар завершить наступну задачу, вона зʼявиться тут і чекатиме на оформлення
+                документа.
+              </p>
+            </div>
+          )}
+        </>
+      ) : (
+      <>
       <div className={styles.filters}>
         <div className={styles.field}>
           <span className={styles.fieldLabel}>Філія</span>
@@ -1122,6 +1325,8 @@ export function ProductionKitchenBoard() {
               : "Коли надійде прогноз через API, задачі одразу з'являться на цьому екрані."}
           </p>
         </div>
+      )}
+      </>
       )}
       </main>
     </>

@@ -1179,3 +1179,263 @@
 .qtyModal .modalCancel {
   margin-top: 0;
 }
+
+/* ─── «Виконані» tab ─── */
+.tabsBar {
+  display: flex;
+  background: var(--black-4);
+  border-radius: var(--r-pill);
+  padding: 4px;
+  gap: 4px;
+}
+.tabBtn,
+.tabActive {
+  border: 0;
+  border-radius: var(--r-pill);
+  padding: 11px 20px;
+  font-family: var(--font-text);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg-2);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.tabActive {
+  background: var(--blue-500);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(35, 88, 209, 0.3);
+}
+.tabCount,
+.tabCountHot {
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: var(--r-pill);
+  padding: 2px 8px;
+  min-width: 22px;
+  text-align: center;
+  background: var(--black-4);
+  color: var(--fg-2);
+}
+.tabCountHot {
+  background: var(--orange-500);
+  color: #fff;
+}
+.tabActive .tabCount,
+.tabActive .tabCountHot {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.doneSelectBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 14px;
+}
+.doneSelectInfo {
+  font-size: 15px;
+  color: var(--fg-2);
+}
+.doneSelectInfo b {
+  color: var(--fg-1);
+}
+.doneLinkBtn {
+  border: 0;
+  background: none;
+  color: var(--blue-600);
+  font-family: var(--font-text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 10px 0;
+}
+
+.doneList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* room for the sticky footer */
+  padding-bottom: 120px;
+}
+.doneRow,
+.doneRowOff {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-20);
+  padding: 16px 20px;
+  box-shadow: var(--shadow-volume);
+  cursor: pointer;
+  transition: opacity var(--dur) var(--easing), background var(--dur) var(--easing);
+}
+.doneRowOff {
+  opacity: 0.55;
+  background: var(--surface-2);
+}
+.doneCb {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 12px;
+  border: 2px solid var(--border-2);
+  background: #fff;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  transition: all 0.15s var(--easing);
+}
+.doneCb svg {
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 0.15s var(--easing);
+}
+.doneRow .doneCb {
+  background: var(--green-600);
+  border-color: var(--green-600);
+}
+.doneRow .doneCb svg {
+  opacity: 1;
+  transform: scale(1);
+}
+.doneMain {
+  flex: 1;
+  min-width: 0;
+}
+.doneTitle {
+  font-weight: 600;
+  font-size: 16.5px;
+  margin: 0 0 3px;
+}
+.doneMeta {
+  font-size: 13px;
+  color: var(--fg-3);
+  margin: 0;
+}
+.doneQtyCol {
+  text-align: right;
+  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+}
+.doneQtyMade {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 1.15;
+}
+.doneQtyMade small {
+  font-size: 14px;
+  color: var(--fg-3);
+  font-weight: 600;
+}
+.doneQtyPlan,
+.doneQtyPlanDiff {
+  font-size: 12.5px;
+  color: var(--fg-4);
+}
+.doneQtyPlanDiff {
+  color: var(--orange-900);
+  font-weight: 600;
+}
+.doneAt {
+  font-size: 13px;
+  white-space: nowrap;
+  background: var(--green-100);
+  color: var(--green-700);
+  font-weight: 600;
+  border-radius: var(--r-pill);
+  padding: 5px 12px;
+}
+
+.doneFooter {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--border-1);
+  padding: 12px 24px calc(12px + env(safe-area-inset-bottom));
+}
+.doneFooterIn {
+  max-width: 1284px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.doneFooterSum {
+  font-size: 14px;
+  color: var(--fg-2);
+}
+.doneFooterSum b {
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--fg-1);
+}
+.docBtn {
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--green-600);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  padding: 0 32px;
+  height: 58px;
+  cursor: pointer;
+}
+.docBtn:active {
+  background: var(--green-700);
+}
+.docBtn:disabled {
+  background: var(--border-2);
+  color: var(--fg-4);
+  cursor: not-allowed;
+}
+.doneFooterHint {
+  width: 100%;
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--fg-4);
+  text-align: right;
+}
+.stateIconDone {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--green-100);
+  color: var(--green-600);
+  display: grid;
+  place-items: center;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 700px) {
+  .tabBtn,
+  .tabActive {
+    padding: 9px 13px;
+    font-size: 13.5px;
+  }
+  .doneRow,
+  .doneRowOff {
+    padding: 13px 14px;
+    gap: 12px;
+  }
+  .doneAt {
+    display: none;
+  }
+  .doneQtyMade {
+    font-size: 20px;
+  }
+}
