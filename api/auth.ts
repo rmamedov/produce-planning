@@ -6,7 +6,7 @@ export async function requireAdmin() {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
 
-  if (!token || !verifySessionToken(token)) {
+  if (!token || !(await verifySessionToken(token))) {
     throw new Error("Unauthorized");
   }
 }
