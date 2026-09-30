@@ -156,6 +156,51 @@ export const productionTaskCompleteSchema = z.object({
     .optional()
 });
 
+const PRESENTATION_WINDOW_MESSAGE = "Час групування — від 0,5 до 24 год, крок 0,5";
+
+export const presentationSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, "Назва має містити щонайменше 2 символи")
+    .max(40, "Назва — не довше 40 символів"),
+  filial_ids: z
+    .array(z.coerce.number().int().positive("filial_id має бути додатним цілим числом"))
+    .min(2, "Оберіть щонайменше 2 філії")
+    .refine((ids) => new Set(ids).size === ids.length, "Філії не повинні повторюватися"),
+  window_hours: z.coerce
+    .number({ invalid_type_error: PRESENTATION_WINDOW_MESSAGE })
+    .min(0.5, PRESENTATION_WINDOW_MESSAGE)
+    .max(24, PRESENTATION_WINDOW_MESSAGE)
+    .refine((hours) => Number.isInteger(hours * 2), PRESENTATION_WINDOW_MESSAGE)
+});
+
+export const taskIdsSchema = z.object({
+  task_ids: z
+    .array(z.string().min(1))
+    .min(1, "Виберіть хоча б одну задачу")
+    .max(200, "Занадто багато задач за один раз")
+});
+
+export const batchCompleteSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        task_id: z.string().min(1),
+        produced_qty: z
+          .number()
+          .positive("produced_qty має бути більшим за 0")
+          .max(99999, "produced_qty занадто велике")
+      })
+    )
+    .min(1, "Виберіть хоча б одну задачу")
+    .max(200, "Занадто багато задач за один раз")
+    .refine(
+      (items) => new Set(items.map((item) => item.task_id)).size === items.length,
+      "Задачі не повинні повторюватися"
+    )
+});
+
 export const productionTaskGenerateSchema = z.object({
   filial_id: z.coerce.number().int().positive("filial_id має бути додатним цілим числом").optional()
 });

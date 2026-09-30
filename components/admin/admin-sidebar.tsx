@@ -11,6 +11,7 @@ import {
   ChefHat,
   ClipboardList,
   Factory,
+  Layers,
   LayoutDashboard,
   Settings,
   ShoppingBasket,
@@ -24,6 +25,7 @@ import { cn } from "@/lib/utils";
 const items = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/branches", label: "Філії", icon: Store },
+  { href: "/admin/presentations", label: "Представлення", icon: Layers },
   { href: "/admin/assortments", label: "Асортимент", icon: Blocks },
   { href: "/admin/products", label: "Товари", icon: ShoppingBasket },
   { href: "/admin/tech-cards", label: "Технологічні карти", icon: ChefHat },
@@ -41,7 +43,7 @@ export function AdminSidebar() {
 
   return (
     <aside className="panel-surface sticky top-6 hidden h-[calc(100vh-3rem)] min-w-72 flex-col justify-between overflow-hidden lg:flex">
-      <div className="space-y-8 p-6">
+      <div className="min-h-0 flex-1 space-y-8 overflow-y-auto p-6">
         <div className="space-y-3">
           <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-primary/10 text-primary">
             <Factory className="h-7 w-7" />

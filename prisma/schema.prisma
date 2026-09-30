@@ -252,10 +252,24 @@ model ProductionTask {
   updatedAt     DateTime     @updatedAt
   startedAt     DateTime?
   completedAt   DateTime?
+  // Shared by every task started (or completed) together as one kitchen
+  // batch; cleared when the task returns to NEW, kept after completion.
+  batchId       String?
 
   @@index([filialId])
   @@index([filialId, historyDate])
   @@index([departmentId])
   @@index([status])
   @@index([priority])
+  @@index([batchId])
+}
+
+// A named set of filials whose orders one kitchen produces together.
+model Presentation {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  filialIds     Int[]
+  windowMinutes Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

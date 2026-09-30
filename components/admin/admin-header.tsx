@@ -7,6 +7,7 @@ import { LogoutButton } from "@/components/admin/logout-button";
 const labels: Record<string, string> = {
   admin: "Dashboard",
   branches: "Філії",
+  presentations: "Представлення",
   assortments: "Асортимент",
   products: "Товари",
   "tech-cards": "Технологічні карти",

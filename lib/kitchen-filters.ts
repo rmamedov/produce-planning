@@ -84,6 +84,47 @@ export function resolveBranchSelection(
   return String(DEFAULT_FILIAL_ID);
 }
 
+// The scope selector stores either a filial id ("3361") or a presentation
+// ("p:<presentationId>") under the same localStorage key.
+export const PRESENTATION_SCOPE_PREFIX = "p:";
+
+export function isPresentationScope(value: string | null | undefined): value is string {
+  return typeof value === "string" && value.startsWith(PRESENTATION_SCOPE_PREFIX);
+}
+
+export function presentationScopeValue(presentationId: string): string {
+  return `${PRESENTATION_SCOPE_PREFIX}${presentationId}`;
+}
+
+/** The presentation id of a "p:<id>" scope value, else null. */
+export function presentationIdOf(value: string | null | undefined): string | null {
+  if (!isPresentationScope(value)) return null;
+  const id = value.slice(PRESENTATION_SCOPE_PREFIX.length);
+  return id ? id : null;
+}
+
+/**
+ * Picks the board scope — a presentation or a single filial:
+ *  - a stored "p:<id>" is kept while presentations are not loaded yet, and
+ *    once loaded as long as that presentation still exists;
+ *  - a deleted presentation falls back to the default filial logic
+ *    (the caller tells the operator which filial is shown instead);
+ *  - anything else behaves exactly like resolveBranchSelection.
+ */
+export function resolveScopeSelection(
+  stored: string | null,
+  availableFilialIds: number[],
+  presentationIds: string[],
+  loaded: boolean
+): string | null {
+  if (isPresentationScope(stored)) {
+    const id = presentationIdOf(stored);
+    if (id && (!loaded || presentationIds.includes(id))) return stored;
+    return resolveBranchSelection(null, availableFilialIds, loaded);
+  }
+  return resolveBranchSelection(stored, availableFilialIds, loaded);
+}
+
 /**
  * Department default: the stored choice ("all" is a valid stored choice),
  * otherwise Пекарня (17).

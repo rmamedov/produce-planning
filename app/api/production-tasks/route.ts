@@ -88,7 +88,8 @@ export async function GET(request: NextRequest) {
         started_at: task.startedAt?.toISOString() ?? null,
         completed_at: task.completedAt?.toISOString() ?? null,
         documented_at: task.documentedAt?.toISOString() ?? null,
-        transfer_id: task.transferId
+        transfer_id: task.transferId,
+        batch_id: task.batchId
       }))
     });
   } catch (error) {

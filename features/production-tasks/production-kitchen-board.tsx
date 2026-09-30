@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { getDepartmentName } from "@/domain/departments";
@@ -14,10 +15,13 @@ import {
   DEFAULT_FILIAL_ID,
   dateFilterLabel,
   isConcreteDate,
-  resolveBranchSelection,
+  isPresentationScope,
+  presentationScopeValue,
   resolveDateFilter,
-  resolveDepartmentSelection
+  resolveDepartmentSelection,
+  resolveScopeSelection
 } from "@/lib/kitchen-filters";
+import { groupMatchesFilters, groupPresentationTasks, plural } from "@/lib/presentation-grouping";
 import {
   appendComma,
   appendDigit,
@@ -40,49 +44,18 @@ import {
   resolveBakeryTypeSelection
 } from "@/lib/task-badges";
 import { sortKitchenTasks } from "@/lib/task-sorting";
+import { PresentationBoard } from "./presentation/presentation-board";
+import { PresentationDone } from "./presentation/presentation-done";
+import { ScopePicker } from "./presentation/scope-picker";
 import styles from "./production-kitchen-board.module.css";
-
-interface ProductionTask {
-  id: string;
-  filial_id: number;
-  department_id: number | null;
-  department_name: string | null;
-  lager_id: number;
-  lager_name: string | null;
-  unit: string | null;
-  snapshot_hour: number | null;
-  history_date: string;
-  status: "NEW" | "IN_PROGRESS" | "DONE" | "CANCELLED";
-  priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
-  priority_level: number;
-  quantity: number;
-  covered_hours: number;
-  current_stock_qty: number | null;
-  is_guest_promise: boolean;
-  promo_mechanics: string | null;
-  ecom_orders_qty: number | null;
-  bakery_type: string | null;
-  reason: string;
-  operational_ready_at: string | null;
-  is_overdue: boolean;
-  produced_qty: number | null;
-  completed_at: string | null;
-  documented_at: string | null;
-  transfer_id: string | null;
-}
-
-interface ProductionTasksResponse {
-  generated_at: string;
-  count: number;
-  tasks: ProductionTask[];
-}
+import type { KitchenTask, KitchenTasksResponse, PresentationsResponse } from "./types";
 
 type PrioKey = "critical" | "high" | "medium";
 
 // `variant` drives the CSS class suffix (prio/note/card tints); `label` is the
 // Ukrainian text shown on the badge.
 const PRIORITY_META: Record<
-  ProductionTask["priority"],
+  KitchenTask["priority"],
   { key: PrioKey; variant: "Critical" | "High" | "Medium"; label: string }
 > = {
   CRITICAL: { key: "critical", variant: "Critical", label: "Критичний" },
@@ -95,6 +68,7 @@ const STORAGE_KEY = "kitchen.selectedBranch";
 const DEPARTMENT_STORAGE_KEY = "kitchen.selectedDepartment";
 const DATE_STORAGE_KEY = "kitchen.selectedDate";
 const VIEW_STORAGE_KEY = "kitchen.viewMode";
+const PRESENTATION_VIEW_STORAGE_KEY = "kitchen.presentationView";
 const STATUS_STORAGE_KEY = "kitchen.selectedStatus";
 const PRIORITY_STORAGE_KEY = "kitchen.selectedPriority";
 const BAKERY_STORAGE_KEY = "kitchen.selectedBakeryType";
@@ -149,11 +123,85 @@ function ListIcon() {
   );
 }
 
+function SheetIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+      <path d="M3 6h18M3 12h18M3 18h18" />
+    </svg>
+  );
+}
+
+function PrepIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+      <rect x="9" y="3" width="6" height="4" rx="1" />
+      <path d="m9 14 2 2 4-4" />
+    </svg>
+  );
+}
+
 function ChevronIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6 9l6 6 6-6" />
     </svg>
+  );
+}
+
+type FilterOption = { value: string; label: string };
+
+const BAKERY_FILTER_OPTIONS: FilterOption[] = [
+  { value: "all", label: "Усі" },
+  ...BAKERY_TYPES.map((type) => ({ value: type, label: type }))
+];
+
+const PRIORITY_FILTER_OPTIONS: FilterOption[] = [
+  { value: "all", label: "Усі" },
+  { value: "CRITICAL", label: "Критичний" },
+  { value: "HIGH", label: "Високий" },
+  { value: "MEDIUM", label: "Нормальний" }
+];
+
+// A native select is as wide as its widest option, which kept the filter row
+// from fitting one line. The pill draws the chosen label itself and the select
+// lies transparent over the whole pill, so any tap on it opens the picker.
+function FilterSelect({
+  label,
+  ariaLabel,
+  value,
+  options,
+  onChange
+}: {
+  label: string;
+  ariaLabel: string;
+  value: string;
+  options: FilterOption[];
+  onChange: (value: string) => void;
+}) {
+  const current = options.find((option) => option.value === value) ?? options[0];
+  return (
+    <div className={styles.field}>
+      <span className={styles.fieldLabel}>{label}</span>
+      <span className={styles.fieldValue} aria-hidden>
+        {current?.label}
+      </span>
+      <select
+        className={styles.fieldSelect}
+        aria-label={ariaLabel}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <span className={styles.fieldChevron}>
+        <ChevronIcon />
+      </span>
+    </div>
   );
 }
 
@@ -174,6 +222,10 @@ function CheckIcon() {
 }
 
 type ViewMode = "grid" | "list";
+type PresentationView = "sheet" | "prep";
+
+const BATCH_FORMS: [string, string, string] = ["партія", "партії", "партій"];
+const TASK_FORMS: [string, string, string] = ["задача", "задачі", "задач"];
 
 const TaskCard = memo(function TaskCard({
   task,
@@ -181,7 +233,7 @@ const TaskCard = memo(function TaskCard({
   now,
   view
 }: {
-  task: ProductionTask;
+  task: KitchenTask;
   onChanged: () => void;
   now: number;
   view: ViewMode;
@@ -668,10 +720,12 @@ export function ProductionKitchenBoard() {
   const [selectedBakery, setSelectedBakery] = useState("all");
   const [dateMenuOpen, setDateMenuOpen] = useState(false);
   const [view, setView] = useState<ViewMode>("grid");
+  const [presentationView, setPresentationView] = useState<PresentationView>("sheet");
   const [now, setNow] = useState(() => Date.now());
 
-  // True once the branch is either restored from storage or defaulted from
-  // the loaded task list — prevents the fallback from overriding the operator.
+  // True once the scope (filial or "p:<presentation>") is either restored
+  // from storage or defaulted from the loaded task list — prevents the
+  // fallback from overriding the operator.
   const branchResolvedRef = useRef(false);
 
   // Tick so the on-time / overdue status flips live without a refetch.
@@ -694,6 +748,10 @@ export function ProductionKitchenBoard() {
     if (storedDate) setSelectedDate(storedDate);
     const storedView = window.localStorage.getItem(VIEW_STORAGE_KEY);
     if (storedView === "grid" || storedView === "list") setView(storedView);
+    const storedPresentationView = window.localStorage.getItem(PRESENTATION_VIEW_STORAGE_KEY);
+    if (storedPresentationView === "sheet" || storedPresentationView === "prep") {
+      setPresentationView(storedPresentationView);
+    }
     const status = window.localStorage.getItem(STATUS_STORAGE_KEY);
     if (status) setSelectedStatus(status);
     const priority = window.localStorage.getItem(PRIORITY_STORAGE_KEY);
@@ -727,6 +785,12 @@ export function ProductionKitchenBoard() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      window.localStorage.setItem(PRESENTATION_VIEW_STORAGE_KEY, presentationView);
+    }
+  }, [presentationView]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
       window.localStorage.setItem(STATUS_STORAGE_KEY, selectedStatus);
     }
   }, [selectedStatus]);
@@ -746,16 +810,20 @@ export function ProductionKitchenBoard() {
   const queryClient = useQueryClient();
   // Fetch only active tasks — the board never shows DONE/CANCELLED, and the
   // full history has grown to tens of thousands of rows.
-  const query = useApiQuery<ProductionTasksResponse>(
+  const query = useApiQuery<KitchenTasksResponse>(
     ["production-tasks", "kitchen"],
     "/api/production-tasks?status=NEW,IN_PROGRESS",
     // Polling is only a fallback; live updates arrive instantly over SSE below.
     { refetchInterval: 20000 }
   );
 
+  const presentationsQuery = useApiQuery<PresentationsResponse>(["presentations"], "/api/presentations", {
+    refetchInterval: 60000
+  });
+
   // «Виконані» tab: completed tasks not yet put into a transfer document.
   const [activeTab, setActiveTab] = useState<"board" | "done">("board");
-  const doneQuery = useApiQuery<ProductionTasksResponse>(
+  const doneQuery = useApiQuery<KitchenTasksResponse>(
     ["production-tasks", "done"],
     "/api/production-tasks?status=DONE&documented=false",
     { refetchInterval: 20000 }
@@ -775,12 +843,16 @@ export function ProductionKitchenBoard() {
     onSuccess: () => setDeselected(new Set())
   });
 
-  // Default the branch once tasks are known: 3361 when it has tasks,
-  // otherwise the first filial that does. A stored choice wins (see above).
+  // Default the scope once tasks are known: 3361 when it has tasks,
+  // otherwise the first filial that does. A stored choice wins (see above),
+  // except a presentation that no longer exists — then the tablet falls back
+  // to a filial and forgets the stale choice.
   useEffect(() => {
-    if (branchResolvedRef.current) return;
     const loaded = query.data?.tasks;
     if (!loaded) return;
+    const presentationScope = isPresentationScope(selectedBranch);
+    if (branchResolvedRef.current && !presentationScope) return;
+    if (presentationScope && !presentationsQuery.isSuccess) return;
     const ids = Array.from(
       new Set(
         loaded
@@ -788,10 +860,21 @@ export function ProductionKitchenBoard() {
           .map((task) => task.filial_id)
       )
     );
-    const resolved = resolveBranchSelection(null, ids, true);
-    if (resolved) setSelectedBranch(resolved);
+    const presentationIds = (presentationsQuery.data?.presentations ?? []).map((item) => item.id);
+    const resolved = resolveScopeSelection(
+      branchResolvedRef.current ? selectedBranch : null,
+      ids,
+      presentationIds,
+      true
+    );
     branchResolvedRef.current = true;
-  }, [query.data]);
+    if (!resolved || resolved === selectedBranch) return;
+    setSelectedBranch(resolved);
+    if (presentationScope) {
+      window.localStorage.removeItem(STORAGE_KEY);
+      toast(`Представлення більше недоступне — показано філію ${getFilialName(Number(resolved))}`);
+    }
+  }, [query.data, presentationsQuery.isSuccess, presentationsQuery.data, selectedBranch]);
 
   // Real-time updates: subscribe to the server-sent event stream and refresh
   // the moment a forecast is ingested or any task changes status. Reconnects
@@ -830,11 +913,38 @@ export function ProductionKitchenBoard() {
     void refetch();
   }, [refetch]);
 
+  // Batch actions move tasks to «Виконані» too, so both lists refresh. The
+  // promise settles once the active refetches have landed: the presentation
+  // views hold their busy state until then, so stale rows can't be re-tapped.
+  const handlePresentationChanged = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ["production-tasks"] }),
+    [queryClient]
+  );
+
   const allTasks = query.data?.tasks ?? [];
 
   const activeTasks = useMemo(
     () => allTasks.filter((task) => task.status === "NEW" || task.status === "IN_PROGRESS"),
     [allTasks]
+  );
+
+  const presentations = presentationsQuery.data?.presentations;
+  const presentationScope = isPresentationScope(selectedBranch);
+  const activePresentation = useMemo(
+    () =>
+      presentationScope
+        ? presentations?.find((item) => presentationScopeValue(item.id) === selectedBranch) ?? null
+        : null,
+    [presentationScope, presentations, selectedBranch]
+  );
+  const presentationFilials = useMemo(
+    () => (activePresentation ? new Set(activePresentation.filial_ids) : null),
+    [activePresentation]
+  );
+  const inScope = useCallback(
+    (filialId: number) =>
+      presentationFilials ? presentationFilials.has(filialId) : String(filialId) === selectedBranch,
+    [presentationFilials, selectedBranch]
   );
 
   // Options come from the active tasks, plus the currently-selected value so a
@@ -867,16 +977,16 @@ export function ProductionKitchenBoard() {
   const resolvedDate = resolveDateFilter(selectedDate, new Date(now));
 
   // The bakery-type filter only makes sense where the forecast supplies the
-  // field (Пекарня); hide it when the current branch/department has none.
+  // field (Пекарня); hide it when the current branch/presentation/department has none.
   const bakeryFilterVisible = useMemo(
     () =>
       activeTasks.some(
         (task) =>
           task.bakery_type != null &&
-          String(task.filial_id) === selectedBranch &&
+          inScope(task.filial_id) &&
           (selectedDepartment === "all" || String(task.department_id) === selectedDepartment)
       ),
-    [activeTasks, selectedBranch, selectedDepartment]
+    [activeTasks, inScope, selectedDepartment]
   );
 
   const filtered = activeTasks.filter((task) => {
@@ -905,16 +1015,59 @@ export function ProductionKitchenBoard() {
     [filtered, selectedPriority]
   );
 
-  // «Виконані»: same filial/department context as the board, ALL dates —
-  // yesterday's undocumented completions must not get lost.
+  // Scope picker counters: every filial, in the current department/date scope.
+  const pickerTasks = useMemo(
+    () =>
+      activeTasks.filter(
+        (task) =>
+          (selectedDepartment === "all" || String(task.department_id) === selectedDepartment) &&
+          (resolvedDate === "all" || task.history_date === resolvedDate)
+      ),
+    [activeTasks, selectedDepartment, resolvedDate]
+  );
+
+  // Presentation mode: only the scope filters narrow the tasks here — status
+  // and priority are display filters the board applies after grouping, so a
+  // batch is always shown whole.
+  const presentationTasks = useMemo(() => {
+    if (!presentationFilials) return [];
+    return activeTasks.filter(
+      (task) =>
+        presentationFilials.has(task.filial_id) &&
+        (selectedDepartment === "all" || String(task.department_id) === selectedDepartment) &&
+        (!bakeryFilterVisible || matchesBakeryType(task.bakery_type, selectedBakery)) &&
+        (resolvedDate === "all" || task.history_date === resolvedDate)
+    );
+  }, [
+    activeTasks,
+    presentationFilials,
+    selectedDepartment,
+    bakeryFilterVisible,
+    selectedBakery,
+    resolvedDate
+  ]);
+
+  const visibleBatches = useMemo(() => {
+    if (!activePresentation) return null;
+    const groups = groupPresentationTasks(presentationTasks, activePresentation.window_minutes).filter(
+      (group) => groupMatchesFilters(group, selectedStatus, selectedPriority)
+    );
+    return {
+      batches: groups.length,
+      tasks: groups.reduce((sum, group) => sum + group.members.length, 0)
+    };
+  }, [activePresentation, presentationTasks, selectedStatus, selectedPriority]);
+
+  // «Виконані»: same filial (or presentation) / department context as the
+  // board, ALL dates — yesterday's undocumented completions must not get lost.
   const doneTasks = useMemo(() => {
     const rows = (doneQuery.data?.tasks ?? []).filter(
       (task) =>
-        String(task.filial_id) === selectedBranch &&
+        inScope(task.filial_id) &&
         (selectedDepartment === "all" || String(task.department_id) === selectedDepartment)
     );
     return rows.sort((a, b) => (a.completed_at ?? "").localeCompare(b.completed_at ?? ""));
-  }, [doneQuery.data, selectedBranch, selectedDepartment]);
+  }, [doneQuery.data, inScope, selectedDepartment]);
 
   // Keep the deselection set free of ids that left the tab (documented
   // elsewhere or refetched away).
@@ -965,9 +1118,18 @@ export function ProductionKitchenBoard() {
             aria-selected={activeTab === "board"}
             className={activeTab === "board" ? styles.tabActive : styles.tabBtn}
             onClick={() => setActiveTab("board")}
+            title={
+              visibleBatches
+                ? `${visibleBatches.batches} ${plural(visibleBatches.batches, BATCH_FORMS)} · ${
+                    visibleBatches.tasks
+                  } ${plural(visibleBatches.tasks, TASK_FORMS)}`
+                : undefined
+            }
           >
             До виробництва
-            <span className={styles.tabCount}>{activeTasks.length}</span>
+            <span className={styles.tabCount}>
+              {visibleBatches ? visibleBatches.batches : activeTasks.length}
+            </span>
           </button>
           <button
             type="button"
@@ -984,7 +1146,27 @@ export function ProductionKitchenBoard() {
         </div>
 
         <div className={styles.controls}>
-          {activeTab === "board" ? (
+          {activeTab === "board" && presentationScope ? (
+            <div className={styles.segment} role="group" aria-label="Вигляд">
+              {(
+                [
+                  { value: "sheet", label: "Партії", icon: <SheetIcon /> },
+                  { value: "prep", label: "Заготовки", icon: <PrepIcon /> }
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`${presentationView === opt.value ? styles.segmentActive : styles.segmentBtn} ${styles.segmentIcon}`}
+                  aria-pressed={presentationView === opt.value}
+                  onClick={() => setPresentationView(opt.value)}
+                >
+                  {opt.icon}
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          ) : activeTab === "board" ? (
           <div className={styles.viewToggle} role="group" aria-label="Вигляд">
             <button
               type="button"
@@ -1025,7 +1207,17 @@ export function ProductionKitchenBoard() {
         </div>
       </header>
 
-      {activeTab === "done" ? (
+      {activeTab === "done" && presentationScope ? (
+        activePresentation ? (
+          <PresentationDone
+            presentation={activePresentation}
+            tasks={doneTasks}
+            deselected={deselected}
+            onDeselectedChange={setDeselected}
+            onChanged={handlePresentationChanged}
+          />
+        ) : null
+      ) : activeTab === "done" ? (
         <>
           {doneTasks.length ? (
             <>
@@ -1131,65 +1323,36 @@ export function ProductionKitchenBoard() {
       ) : (
       <>
       <div className={styles.filters}>
-        <div className={styles.field}>
-          <span className={styles.fieldLabel}>Філія</span>
-          <select
-            className={styles.fieldSelect}
-            aria-label="Філія"
-            value={selectedBranch}
-            onChange={(event) => changeBranch(event.target.value)}
-          >
-            {branchOptions.map((id) => (
-              <option key={id} value={String(id)}>
-                {getFilialName(id)}
-              </option>
-            ))}
-          </select>
-          <span className={styles.fieldChevron}>
-            <ChevronIcon />
-          </span>
-        </div>
+        <ScopePicker
+          value={selectedBranch}
+          presentations={presentations ?? []}
+          filialIds={branchOptions}
+          tasks={pickerTasks}
+          onChange={changeBranch}
+        />
 
-        <div className={styles.field}>
-          <span className={styles.fieldLabel}>Відділ</span>
-          <select
-            className={styles.fieldSelect}
-            aria-label="Відділ"
-            value={selectedDepartment}
-            onChange={(event) => changeDepartment(event.target.value)}
-          >
-            <option value="all">Усі відділи</option>
-            {departmentOptions.map((id) => (
-              <option key={id} value={String(id)}>
-                {getDepartmentName(id) ?? `Відділ ${id}`}
-              </option>
-            ))}
-          </select>
-          <span className={styles.fieldChevron}>
-            <ChevronIcon />
-          </span>
-        </div>
+        <FilterSelect
+          label="Відділ"
+          ariaLabel="Відділ"
+          value={selectedDepartment}
+          options={[
+            { value: "all", label: "Усі" },
+            ...departmentOptions.map((id) => ({
+              value: String(id),
+              label: getDepartmentName(id) ?? `Відділ ${id}`
+            }))
+          ]}
+          onChange={changeDepartment}
+        />
 
         {bakeryFilterVisible ? (
-          <div className={styles.field}>
-            <span className={styles.fieldLabel}>Випічка</span>
-            <select
-              className={styles.fieldSelect}
-              aria-label="Тип випічки"
-              value={selectedBakery}
-              onChange={(event) => setSelectedBakery(event.target.value)}
-            >
-              <option value="all">Усі типи</option>
-              {BAKERY_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-            <span className={styles.fieldChevron}>
-              <ChevronIcon />
-            </span>
-          </div>
+          <FilterSelect
+            label="Випічка"
+            ariaLabel="Тип випічки"
+            value={selectedBakery}
+            options={BAKERY_FILTER_OPTIONS}
+            onChange={setSelectedBakery}
+          />
         ) : null}
 
         <div className={styles.dateFieldWrap}>
@@ -1199,7 +1362,7 @@ export function ProductionKitchenBoard() {
             onClick={() => setDateMenuOpen((open) => !open)}
           >
             <span className={styles.fieldLabel}>Дата</span>
-            <span className={styles.dateValue}>{dateFilterLabel(selectedDate)}</span>
+            <span className={styles.fieldValue}>{dateFilterLabel(selectedDate)}</span>
             <span className={styles.fieldChevron}>
               <ChevronIcon />
             </span>
@@ -1256,26 +1419,16 @@ export function ProductionKitchenBoard() {
           ))}
         </div>
 
-        <div className={styles.field}>
-          <span className={styles.fieldLabel}>Пріоритет</span>
-          <select
-            className={styles.fieldSelect}
-            aria-label="Пріоритет"
-            value={selectedPriority}
-            onChange={(event) => setSelectedPriority(event.target.value)}
-          >
-            <option value="all">Усі пріоритети</option>
-            <option value="CRITICAL">Критичний</option>
-            <option value="HIGH">Високий</option>
-            <option value="MEDIUM">Нормальний</option>
-          </select>
-          <span className={styles.fieldChevron}>
-            <ChevronIcon />
-          </span>
-        </div>
+        <FilterSelect
+          label="Пріоритет"
+          ariaLabel="Пріоритет"
+          value={selectedPriority}
+          options={PRIORITY_FILTER_OPTIONS}
+          onChange={setSelectedPriority}
+        />
       </div>
 
-      {query.isLoading ? (
+      {query.isLoading || (presentationScope && !activePresentation && !presentationsQuery.isError) ? (
         <section className={styles.grid} aria-label="Завантаження">
           {Array.from({ length: 6 }).map((_, index) => (
             <div key={index} className={styles.skeletonCard}>
@@ -1287,7 +1440,7 @@ export function ProductionKitchenBoard() {
             </div>
           ))}
         </section>
-      ) : query.isError ? (
+      ) : query.isError || (presentationScope && !activePresentation) ? (
         <div className={styles.stateBox}>
           <div className={styles.stateIcon}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1296,12 +1449,29 @@ export function ProductionKitchenBoard() {
               <line x1="12" y1="16.5" x2="12" y2="16.5" />
             </svg>
           </div>
-          <h2 className={styles.stateTitle}>Не вдалося завантажити задачі</h2>
+          <h2 className={styles.stateTitle}>
+            {query.isError ? "Не вдалося завантажити задачі" : "Не вдалося завантажити представлення"}
+          </h2>
           <p className={styles.stateText}>Спробуйте оновити сторінку.</p>
-          <button type="button" className={styles.btnStart} style={{ width: "auto" }} onClick={() => query.refetch()}>
+          <button
+            type="button"
+            className={styles.btnStart}
+            style={{ width: "auto" }}
+            onClick={() => (query.isError ? query.refetch() : presentationsQuery.refetch())}
+          >
             Оновити
           </button>
         </div>
+      ) : activePresentation ? (
+        <PresentationBoard
+          presentation={activePresentation}
+          tasks={presentationTasks}
+          selectedStatus={selectedStatus}
+          selectedPriority={selectedPriority}
+          view={presentationView}
+          now={now}
+          onChanged={handlePresentationChanged}
+        />
       ) : tasks.length ? (
         <section
           className={view === "list" ? styles.list : styles.grid}

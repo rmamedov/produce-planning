@@ -13,6 +13,7 @@
   --orange-900: #d76609;
 
   --blue-50: #f6f8fd;
+  --blue-100: #e8eefb;
   --blue-200: #d3def5;
   --blue-500: #2358d1;
   --blue-600: #1a47c6;
@@ -40,7 +41,9 @@
   --black-4: rgba(32, 33, 36, 0.04);
 
   --r-12: 12px;
+  --r-16: 16px;
   --r-20: 20px;
+  --r-24: 24px;
   --r-pill: 999px;
 
   --shadow-volume: 0 1px 0 0 rgba(0, 0, 0, 0.06);
@@ -90,7 +93,7 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 32px;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 .eyebrow {
   font-family: var(--font-text);
@@ -146,7 +149,7 @@
 .controls {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-shrink: 0;
 }
 
@@ -155,13 +158,13 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-height: 48px;
   background: var(--surface);
   border: 1px solid var(--border-1);
   border-radius: var(--r-pill);
-  padding: 10px 16px 10px 18px;
+  padding: 0 16px;
   box-shadow: var(--shadow-volume);
-  min-width: 220px;
   cursor: pointer;
   transition: border-color var(--dur) var(--easing);
 }
@@ -177,18 +180,29 @@
   color: var(--fg-3);
   font-weight: 500;
 }
+.fieldValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg-1);
+  white-space: nowrap;
+  padding-right: 20px;
+}
+/* transparent native select over the whole pill — see FilterSelect */
 .fieldSelect {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
   appearance: none;
   border: 0;
+  border-radius: inherit;
   background: transparent;
   font-family: var(--font-text);
   font-size: 14px;
   color: var(--fg-1);
   font-weight: 600;
-  flex: 1;
   cursor: pointer;
   outline: none;
-  padding-right: 20px;
 }
 .fieldChevron {
   position: absolute;
@@ -204,25 +218,17 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 /* date filter */
 .dateFieldWrap {
   position: relative;
 }
-.dateValue {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--fg-1);
-  flex: 1;
-  white-space: nowrap;
-  padding-right: 20px;
-}
 .datePopover {
   position: absolute;
-  top: 50px;
+  top: calc(100% + 8px);
   left: 0;
   z-index: 20;
   display: flex;
@@ -237,8 +243,9 @@
 }
 .dateQuick,
 .dateQuickActive {
+  min-height: 44px;
   text-align: left;
-  padding: 10px 12px;
+  padding: 0 12px;
   border: 0;
   border-radius: var(--r-12);
   background: transparent;
@@ -282,35 +289,41 @@
   border-color: var(--border-2);
 }
 
-/* segmented status chips */
+/* segmented status chips — the 48px buttons fill the control; a transparent
+   4px border (background clipped to it) keeps the visible pill inset */
 .segment {
   display: inline-flex;
-  gap: 2px;
-  padding: 3px;
   background: var(--surface);
-  border: 1px solid var(--border-1);
   border-radius: var(--r-pill);
-  box-shadow: var(--shadow-volume);
+  box-shadow: 0 0 0 1px var(--border-1), var(--shadow-volume);
 }
 .segmentBtn,
 .segmentActive {
-  border: 0;
+  min-height: 48px;
+  border: 4px solid transparent;
+  background-clip: padding-box;
   border-radius: var(--r-pill);
-  background: transparent;
+  background-color: transparent;
   color: var(--fg-3);
   font-family: var(--font-text);
   font-size: 13px;
   font-weight: 600;
-  padding: 7px 14px;
+  padding: 0 12px;
   cursor: pointer;
   white-space: nowrap;
   transition: background var(--dur) var(--easing), color var(--dur) var(--easing);
+}
+.segmentIcon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
 }
 .segmentBtn:hover {
   color: var(--fg-1);
 }
 .segmentActive {
-  background: var(--blue-500);
+  background-color: var(--blue-500);
   color: #fff;
 }
 
@@ -319,9 +332,10 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-height: 48px;
   background: var(--blue-50);
   color: var(--blue-700);
-  padding: 10px 16px;
+  padding: 0 16px;
   border-radius: var(--r-pill);
   font-size: 13px;
   font-weight: 600;
@@ -334,9 +348,10 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-height: 48px;
   background: var(--surface);
   color: var(--fg-1);
-  padding: 10px 16px;
+  padding: 0 16px;
   border-radius: var(--r-pill);
   font-family: var(--font-text);
   font-size: 14px;
@@ -354,25 +369,23 @@
   color: var(--fg-2);
 }
 
-/* view toggle (grid / list) */
+/* view toggle (grid / list) — same inset technique as .segment */
 .viewToggle {
   display: inline-flex;
-  gap: 2px;
-  padding: 3px;
   background: var(--surface);
-  border: 1px solid var(--border-1);
   border-radius: var(--r-pill);
-  box-shadow: var(--shadow-volume);
+  box-shadow: 0 0 0 1px var(--border-1), var(--shadow-volume);
 }
 .viewToggleBtn,
 .viewToggleActive {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 0;
+  width: 48px;
+  height: 48px;
+  border: 4px solid transparent;
+  background-clip: padding-box;
   border-radius: var(--r-pill);
-  background: transparent;
+  background-color: transparent;
   color: var(--fg-3);
   cursor: pointer;
   transition: background var(--dur) var(--easing), color var(--dur) var(--easing);
@@ -381,7 +394,7 @@
   color: var(--fg-1);
 }
 .viewToggleActive {
-  background: var(--blue-50);
+  background-color: var(--blue-50);
   color: var(--blue-700);
 }
 
@@ -483,12 +496,12 @@
 .card {
   background: var(--surface);
   border-radius: var(--r-20);
-  padding: 18px;
+  padding: 16px;
   min-width: 0;
   box-shadow: var(--shadow-outline);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   transition: box-shadow var(--dur) var(--easing);
 }
 .card:hover {
@@ -739,25 +752,29 @@
   inset: 0;
   z-index: 15;
 }
+/* 40px visual circle, 48px hit area: the transparent border extends the
+   button and the negative margin keeps its layout footprint at 40px */
 .kebab {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 48px;
+  height: 48px;
+  margin: -4px;
   border-radius: 50%;
-  border: 0;
-  background: transparent;
+  border: 4px solid transparent;
+  background-clip: padding-box;
+  background-color: transparent;
   color: var(--fg-3);
   cursor: pointer;
   transition: background var(--dur) var(--easing);
 }
 .kebab:hover {
-  background: var(--black-4);
+  background-color: var(--black-4);
   color: var(--fg-1);
 }
 .kebabMenu {
   position: absolute;
-  top: 32px;
+  top: calc(100% + 8px);
   right: 0;
   z-index: 20;
   min-width: 210px;
@@ -772,13 +789,14 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 9px 12px;
+  min-height: 48px;
+  padding: 0 12px;
   border: 0;
   border-radius: 8px;
   background: transparent;
   color: var(--red-700);
   font-family: var(--font-text);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   text-align: left;
   cursor: pointer;
@@ -980,11 +998,11 @@
 .skeletonCard {
   background: var(--surface);
   border-radius: var(--r-20);
-  padding: 18px;
+  padding: 16px;
   box-shadow: var(--shadow-outline);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 .shimmer {
   background: linear-gradient(
@@ -1190,9 +1208,10 @@
 }
 .tabBtn,
 .tabActive {
+  min-height: 48px;
   border: 0;
   border-radius: var(--r-pill);
-  padding: 11px 20px;
+  padding: 0 20px;
   font-family: var(--font-text);
   font-size: 15px;
   font-weight: 600;
@@ -1438,4 +1457,388 @@
   .doneQtyMade {
     font-size: 20px;
   }
+}
+
+/* ─── Scope picker: filial or presentation ─── */
+.scopeWrap {
+  position: relative;
+}
+.scopeField {
+  max-width: 300px;
+}
+.scopeFieldPresentation {
+  /* Concentric inset for the 36px icon in the 48px pill: (48 − 36) / 2. */
+  padding-left: 6px;
+  border-color: transparent;
+  box-shadow: 0 0 0 2px var(--blue-500), var(--shadow-volume);
+}
+.scopeFieldPresentation:hover {
+  border-color: transparent;
+}
+.scopeFieldPresentation:focus-within {
+  box-shadow: 0 0 0 2px var(--blue-500), var(--shadow-focus);
+}
+.scopeFieldIcon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--blue-50);
+  color: var(--blue-500);
+}
+.scopeValue {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg-1);
+}
+.scopePopover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 50;
+  width: 500px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 200px);
+  overflow-y: auto;
+  padding: 8px;
+  background: var(--surface);
+  border-radius: var(--r-20);
+  box-shadow: 0 0 0 1px var(--border-1), 0 16px 40px rgba(0, 0, 0, 0.14);
+}
+.scopeSection {
+  margin: 0;
+  padding: 12px 12px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.scopeDivider {
+  height: 1px;
+  margin: 8px;
+  background: var(--border-1);
+}
+.scopeRow,
+.scopeRowActive {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--r-16);
+  background: transparent;
+  font-family: var(--font-text);
+  text-align: left;
+  color: var(--fg-1);
+  cursor: pointer;
+  transition: background var(--dur) var(--easing);
+}
+.scopeRow:hover {
+  background: var(--black-4);
+}
+.scopeRowActive {
+  background: var(--blue-50);
+}
+.scopeRowFilial {
+  min-height: 56px;
+}
+.scopeTile,
+.scopeTileFilial {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-12);
+  background: var(--blue-100);
+  color: var(--blue-500);
+}
+.scopeTileFilial {
+  width: 40px;
+  height: 40px;
+  background: var(--surface-2);
+  color: var(--fg-2);
+}
+.scopeText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.scopeName {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.scopeNameFilial {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.scopeMeta {
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--fg-3);
+}
+.scopePill,
+.scopePillMuted {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  color: var(--fg-2);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.scopePillMuted {
+  color: var(--fg-4);
+}
+.scopeRowActive .scopePill,
+.scopeRowActive .scopePillMuted {
+  background: var(--surface);
+}
+.scopeCheck {
+  flex-shrink: 0;
+  width: 24px;
+  color: var(--blue-500);
+}
+
+/* ─── Presentation «Виконані»: one section (= one Рубікон document) per filial ─── */
+.presDoneTop {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.presEyebrow {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--orange-900);
+}
+.presTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--fg-1);
+}
+.presDoneAll {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.presDoneAllBtn {
+  height: 58px;
+  padding: 0 32px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--green-600);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.presDoneAllBtn:active {
+  background: var(--green-700);
+}
+.presDoneAllBtn:disabled {
+  background: var(--border-2);
+  color: var(--fg-4);
+  cursor: not-allowed;
+}
+.presDoneAllNote {
+  margin: 0;
+  font-size: 13px;
+  color: var(--fg-3);
+}
+.presDoneSection {
+  margin-bottom: 16px;
+  overflow: hidden;
+  background: var(--surface);
+  border-radius: var(--r-20);
+  box-shadow: 0 0 0 1px var(--border-1), var(--shadow-volume);
+}
+.presDoneHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-1);
+}
+.presDoneName {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--fg-1);
+}
+.presDoneSummary {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--fg-3);
+}
+.presDoneActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.presDoneToggle {
+  min-height: 48px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: var(--blue-600);
+  font-family: var(--font-text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.presDoneDocBtn {
+  height: 56px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--green-600);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.presDoneDocBtn:active {
+  background: var(--green-700);
+}
+.presDoneDocBtn:disabled {
+  background: var(--border-2);
+  color: var(--fg-4);
+  cursor: not-allowed;
+}
+.presDoneRow,
+.presDoneRowOff {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-1);
+  cursor: pointer;
+  transition: opacity var(--dur) var(--easing), background var(--dur) var(--easing);
+}
+.presDoneHead + .presDoneRow,
+.presDoneHead + .presDoneRowOff {
+  border-top: 0;
+}
+.presDoneRowOff {
+  opacity: 0.55;
+  background: var(--surface-2);
+}
+.presDoneRow .doneCb {
+  background: var(--green-600);
+  border-color: var(--green-600);
+}
+.presDoneRow .doneCb svg {
+  opacity: 1;
+  transform: scale(1);
+}
+.presDoneBatch {
+  color: var(--blue-600);
+  font-weight: 600;
+}
+
+/* «Оформити всі» confirmation */
+.presConfirm {
+  width: 100%;
+  max-width: 560px;
+  padding: 24px;
+  background: var(--surface);
+  border-radius: var(--r-24);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+}
+.presConfirmTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--fg-1);
+}
+.presConfirmText {
+  margin: 8px 0 0;
+  font-size: 15px;
+  color: var(--fg-3);
+}
+.presConfirmList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.presConfirmItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border-radius: var(--r-16);
+  box-shadow: 0 0 0 1px var(--border-1);
+  font-size: 16px;
+  color: var(--fg-2);
+}
+.presConfirmItem b {
+  font-family: var(--font-display);
+  color: var(--fg-1);
+}
+.presConfirmFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+.presConfirmCancel,
+.presConfirmOk {
+  height: 58px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: var(--r-pill);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.presConfirmCancel {
+  background: var(--black-4);
+  color: var(--fg-2);
+}
+.presConfirmOk {
+  min-width: 260px;
+  background: var(--green-600);
+  color: #fff;
+}
+.presConfirmOk:active {
+  background: var(--green-700);
 }

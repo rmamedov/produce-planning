@@ -1,6 +1,17 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
+/** An error whose message is safe to show to the user, sent with an explicit status. */
+export class HttpError extends Error {
+  constructor(
+    public status: number,
+    message: string
+  ) {
+    super(message);
+    this.name = "HttpError";
+  }
+}
+
 export async function parseJsonBody<T>(request: Request): Promise<T> {
   return request.json() as Promise<T>;
 }
@@ -14,6 +25,10 @@ export function noContent() {
 }
 
 export function handleApiError(error: unknown) {
+  if (error instanceof HttpError) {
+    return NextResponse.json({ message: error.message }, { status: error.status });
+  }
+
   if (error instanceof ZodError) {
     return NextResponse.json(
       {

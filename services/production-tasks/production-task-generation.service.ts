@@ -104,7 +104,11 @@ export const productionTaskGenerationService = {
 
     // 4) Decide every mutation in memory.
     const creates: Prisma.ProductionTaskCreateManyInput[] = [];
-    const updates: Array<{ id: string; data: Prisma.ProductionTaskUncheckedUpdateInput }> = [];
+    const updates: Array<{
+      id: string;
+      status: TaskStatus;
+      data: Prisma.ProductionTaskUncheckedUpdateManyInput;
+    }> = [];
     const cancelIds: string[] = [];
 
     for (const row of rows) {
@@ -129,7 +133,6 @@ export const productionTaskGenerationService = {
       }
       if (decision === "cancel") {
         cancelIds.push(existing!.id);
-        summary.cancelled += 1;
         continue;
       }
 
@@ -177,6 +180,7 @@ export const productionTaskGenerationService = {
       } else {
         updates.push({
           id: existing!.id,
+          status: existing!.status,
           data: {
             status: TaskStatus.NEW,
             priority,
@@ -199,33 +203,43 @@ export const productionTaskGenerationService = {
             // task drops its completion, a reopened CANCELLED task its reason.
             startedAt: null,
             completedAt: null,
-            cancelReason: null
+            cancelReason: null,
+            batchId: null
           }
         });
-        summary.updated += 1;
       }
     }
 
     // 5) Write in bulk, chunked so a huge ingest doesn't build one giant
-    //    transaction.
+    //    transaction. Cancels and updates only apply while the task still has
+    //    the status read above: a task a tablet started (or finished) in the
+    //    meantime is left alone and counted as skipped/unchanged instead.
     if (creates.length) {
       for (const batch of chunk(creates, WRITE_BATCH_SIZE)) {
         await prisma.productionTask.createMany({ data: batch });
       }
     }
     if (cancelIds.length) {
-      await prisma.productionTask.updateMany({
-        where: { id: { in: cancelIds } },
+      const { count } = await prisma.productionTask.updateMany({
+        where: { id: { in: cancelIds }, status: TaskStatus.NEW },
         data: { status: TaskStatus.CANCELLED, quantity: 0, reason: CANCELLED_BY_COVERAGE_REASON }
       });
+      summary.cancelled += count;
+      summary.skipped += cancelIds.length - count;
     }
     if (updates.length) {
       for (const batch of chunk(updates, WRITE_BATCH_SIZE)) {
-        await prisma.$transaction(
+        const results = await prisma.$transaction(
           batch.map((update) =>
-            prisma.productionTask.update({ where: { id: update.id }, data: update.data })
+            prisma.productionTask.updateMany({
+              where: { id: update.id, status: update.status },
+              data: update.data
+            })
           )
         );
+        const written = results.reduce((sum, result) => sum + result.count, 0);
+        summary.updated += written;
+        summary.unchanged += batch.length - written;
       }
     }
 

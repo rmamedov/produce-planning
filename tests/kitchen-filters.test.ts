@@ -6,11 +6,15 @@ import {
   DEFAULT_FILIAL_ID,
   dateFilterLabel,
   isConcreteDate,
+  isPresentationScope,
   isoDateOffset,
   localDateStr,
+  presentationIdOf,
+  presentationScopeValue,
   resolveBranchSelection,
   resolveDateFilter,
-  resolveDepartmentSelection
+  resolveDepartmentSelection,
+  resolveScopeSelection
 } from "@/lib/kitchen-filters";
 
 // Fixed reference date: 15 July 2026 (local time).
@@ -104,6 +108,62 @@ describe("resolveBranchSelection", () => {
 
   it("ignores garbage stored values", () => {
     expect(resolveBranchSelection("abc", [2048], true)).toBe("2048");
+  });
+});
+
+describe("presentation scope values", () => {
+  it("round-trips a presentation id through the stored value", () => {
+    expect(presentationScopeValue("abc")).toBe("p:abc");
+    expect(isPresentationScope("p:abc")).toBe(true);
+    expect(presentationIdOf("p:abc")).toBe("abc");
+  });
+
+  it("does not treat filial ids, empty or missing values as presentations", () => {
+    expect(isPresentationScope("3361")).toBe(false);
+    expect(isPresentationScope(null)).toBe(false);
+    expect(isPresentationScope(undefined)).toBe(false);
+    expect(presentationIdOf("3361")).toBeNull();
+    expect(presentationIdOf("p:")).toBeNull();
+  });
+});
+
+describe("resolveScopeSelection", () => {
+  it("keeps a stored presentation that still exists", () => {
+    expect(resolveScopeSelection("p:left", [3361, 2048], ["left", "center"], true)).toBe("p:left");
+  });
+
+  it("keeps a stored presentation while presentations are not loaded yet", () => {
+    expect(resolveScopeSelection("p:left", [], [], false)).toBe("p:left");
+    expect(resolveScopeSelection("p:gone", [2048], [], false)).toBe("p:gone");
+  });
+
+  it("falls back to the default filial when the presentation was deleted", () => {
+    expect(resolveScopeSelection("p:gone", [2048, 3361], ["left"], true)).toBe("3361");
+  });
+
+  it("falls back to the first available filial when 3361 has no tasks", () => {
+    expect(resolveScopeSelection("p:gone", [2048, 2043], ["left"], true)).toBe("2043");
+  });
+
+  it("falls back to the default filial when nothing is available", () => {
+    expect(resolveScopeSelection("p:gone", [], [], true)).toBe(String(DEFAULT_FILIAL_ID));
+  });
+
+  it("treats an empty presentation id as garbage", () => {
+    expect(resolveScopeSelection("p:", [2048], ["left"], true)).toBe("2048");
+    expect(resolveScopeSelection("p:", [2048], ["left"], false)).toBeNull();
+  });
+
+  it("keeps a stored filial exactly like resolveBranchSelection", () => {
+    expect(resolveScopeSelection("2048", [], [], false)).toBe("2048");
+    expect(resolveScopeSelection("2048", [3361], ["left"], true)).toBe("2048");
+  });
+
+  it("uses the default filial logic without a stored choice", () => {
+    expect(resolveScopeSelection(null, [], [], false)).toBeNull();
+    expect(resolveScopeSelection(null, [2048, 3361], ["left"], true)).toBe("3361");
+    expect(resolveScopeSelection("all", [2048], [], true)).toBe("2048");
+    expect(resolveScopeSelection("abc", [2043], [], true)).toBe("2043");
   });
 });
 
