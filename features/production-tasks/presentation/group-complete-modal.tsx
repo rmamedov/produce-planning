@@ -18,6 +18,7 @@ import {
   formatClock,
   formatQty,
   initialCompleteState,
+  memberLabels,
   rowSum
 } from "./presentation-view";
 import styles from "./presentation.module.css";
@@ -71,6 +72,7 @@ export function GroupCompleteModal({
 
   const compact = members.length === 1;
   const names = members.map((member) => getFilialShortName(member.filial_id));
+  const labels = memberLabels(members, now);
   const filialCount = new Set(members.map((member) => member.filial_id)).size;
   const ordered = Math.round(state.ordered.reduce((sum, quantity) => sum + quantity, 0) * 10) / 10;
   const sum = rowSum(state);
@@ -97,7 +99,7 @@ export function GroupCompleteModal({
     ? `Зараз вводите: ${names[0]}`
     : totalTargeted
       ? "Зараз вводите: разом на всі філії"
-      : `Зараз вводите: ${names[state.target as number]}`;
+      : `Зараз вводите: ${labels[state.target as number]}`;
 
   return (
     <ModalOverlay label="Скільки виготовлено?" busy={busy} onClose={onCancel}>
@@ -191,7 +193,7 @@ export function GroupCompleteModal({
                       <span>
                         <span className={styles.dname}>
                           <span className={`${styles.pdot} ${PRIORITY_DOT[tone]}`} />
-                          <span className={styles.dnameText}>{names[index]}</span>
+                          <span className={styles.dnameText}>{labels[index]}</span>
                         </span>
                         <span className={styles.dsub}>
                           замовлено {formatQty(member.quantity)} {unit}

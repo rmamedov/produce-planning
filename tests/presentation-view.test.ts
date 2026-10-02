@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   WORDS,
-  batchStatusLine,
+  absentFilialNames,
+  batchLastText,
+  batchTiles,
+  batchWindowText,
   buildPrepSheet,
   clockDay,
   clockTime,
@@ -19,6 +22,7 @@ import {
   initialCompleteState,
   laneBadges,
   lateText,
+  memberLabels,
   minutesLate,
   prepInProgressNote,
   prepLayout,
@@ -27,7 +31,10 @@ import {
   rowSum,
   scopeEyebrow,
   sheetLayout,
+  shelfStockText,
   sliceByFilial,
+  sliceLabel,
+  sliceOrders,
   startedToastText,
   type CompleteAction,
   type CompleteState
@@ -95,6 +102,8 @@ describe("formatting", () => {
     expect(countLabel(3, WORDS.filial)).toBe("3 філії");
     expect(countLabel(11, WORDS.task)).toBe("11 задач");
     expect(countLabel(22, WORDS.position)).toBe("22 позиції");
+    expect(countLabel(2, WORDS.order)).toBe("2 замовлення");
+    expect(countLabel(5, WORDS.order)).toBe("5 замовлень");
   });
 
   it("prints local clock time and whole overdue minutes (at least 1)", () => {
@@ -164,28 +173,56 @@ describe("row labels", () => {
   it("says where a batch goes", () => {
     expect(filialSpreadLabel([3361, 2048, 2043])).toBe("на 3 філії");
     expect(filialSpreadLabel([3361, 2048, 2043, 1, 2])).toBe("на 5 філій");
-    expect(filialSpreadLabel([3361])).toBe("лише Березнева");
+    expect(filialSpreadLabel([3361])).toBe("одна філія");
   });
 
-  it("shows the window for NEW batches only", () => {
-    const now = at(8, 0);
+  it("spans the grouping window from the batch deadline", () => {
     const [window] = groupPresentationTasks(croissant(), 300);
-    expect(batchStatusLine(window, 300, now)).toBe("вікно 09:10–14:10 · 3 філії");
+    expect(batchWindowText(window, 300, at(8, 0))).toBe("09:10–14:10");
 
     const [noTime] = groupPresentationTasks([task({ operational_ready_at: null })], 300);
-    expect(batchStatusLine(noTime, 300, now)).toBe("без часу готовності · 1 філія");
-
-    const [batch] = groupPresentationTasks(
-      [task({ status: "IN_PROGRESS", batch_id: "b1" }), task({ status: "IN_PROGRESS", batch_id: "b1", filial_id: 2048 })],
-      300
-    );
-    expect(batchStatusLine(batch, 300, now)).toBe("2 філії");
+    expect(batchWindowText(noTime, 300, at(8, 0))).toBeNull();
   });
 
-  it("names the day of a window end that is not today", () => {
+  it("names the day of a window end that falls on another day than its start", () => {
     const [late] = groupPresentationTasks([task({ operational_ready_at: iso(22, 30) })], 300);
-    expect(batchStatusLine(late, 300, at(20, 0))).toBe("вікно 22:30–03:30\u00a0(завтра) · 1 філія");
-    expect(batchStatusLine(late, 300, at(23, 59) + 2 * 60000)).toBe("вікно 22:30–03:30 · 1 філія");
+    expect(batchWindowText(late, 300, at(20, 0))).toBe("22:30–03:30\u00a0(завтра)");
+    expect(batchWindowText(late, 300, at(23, 59) + 2 * 60000)).toBe("вчора\u00a022:30–03:30\u00a0(сьогодні)");
+  });
+
+  it("adds the last readiness of a batch, naming its day only when the deadline's differs", () => {
+    const tomorrow = (hh: number, mm: number) => new Date(2026, 9, 1, hh, mm).toISOString();
+    const [spread] = groupPresentationTasks(
+      [task({ operational_ready_at: iso(15, 9) }), task({ filial_id: 2048, operational_ready_at: iso(16, 40) })],
+      300
+    );
+    expect(batchLastText(spread, at(12, 0))).toBe("остання до 16:40");
+
+    const [overnight] = groupPresentationTasks(
+      [task({ operational_ready_at: iso(23, 50) }), task({ filial_id: 2048, operational_ready_at: tomorrow(3, 0) })],
+      300
+    );
+    expect(batchLastText(overnight, at(20, 0))).toBe("остання до завтра\u00a003:00");
+
+    const [nextDay] = groupPresentationTasks(
+      [task({ operational_ready_at: tomorrow(9, 0) }), task({ filial_id: 2048, operational_ready_at: tomorrow(11, 0) })],
+      300
+    );
+    expect(batchLastText(nextDay, at(20, 0))).toBe("остання до 11:00");
+
+    const [together] = groupPresentationTasks(
+      [task({ operational_ready_at: iso(15, 9) }), task({ filial_id: 2048, operational_ready_at: iso(15, 9) })],
+      300
+    );
+    expect(batchLastText(together, at(12, 0))).toBeNull();
+    const [single] = groupPresentationTasks([task({ operational_ready_at: iso(15, 9) })], 300);
+    expect(batchLastText(single, at(12, 0))).toBeNull();
+  });
+
+  it("lists the presentation filials missing from a batch", () => {
+    const [group] = groupPresentationTasks(croissant().slice(0, 2), 300);
+    expect(absentFilialNames(group, [2043, 2048, 3361])).toEqual(["Дніпровська Наб. 33"]);
+    expect(absentFilialNames(group, [2048, 3361])).toEqual([]);
   });
 
   it("builds the scope eyebrow from the visible batches", () => {
@@ -237,22 +274,148 @@ describe("toasts", () => {
   });
 });
 
-describe("grid layouts", () => {
-  it("uses the spec columns up to 4 filials", () => {
-    expect(sheetLayout(3)).toEqual({
-      columns: "140px minmax(200px, 1fr) repeat(3, 120px) 150px 216px",
-      gap: 12,
-      wide: false
+describe("batchTiles", () => {
+  const filials = [2043, 2048, 3361];
+
+  it("keeps one slot per presentation filial in header order, empty where absent", () => {
+    const [group] = groupPresentationTasks(
+      [
+        task({ filial_id: 3361, quantity: 9, operational_ready_at: iso(15, 9), priority: "HIGH" }),
+        task({ filial_id: 3361, quantity: 6, operational_ready_at: iso(16, 40), priority: "MEDIUM" }),
+        task({ filial_id: 2048, quantity: 12, operational_ready_at: iso(15, 21), priority: "HIGH" })
+      ],
+      300
+    );
+    const tiles = batchTiles(group, filials, at(12, 5));
+    expect(tiles.map((tile) => tile?.name ?? null)).toEqual([null, "Січових Стрільців", "Березнева"]);
+
+    const [, sich, berez] = tiles;
+    expect(berez).toMatchObject({
+      orders: 2,
+      priority: null,
+      due: { text: "до 15:09", short: "до 15:09", late: false }
     });
-    expect(prepLayout(4).columns).toBe("minmax(240px, 1fr) repeat(4, 110px) 140px minmax(220px, 300px)");
+    expect(berez?.slice.quantity).toBe(15);
+    expect(berez?.ariaLabel).toBe("Березнева: 15 шт, до 15:09, 2 замовлення. Дії для філії");
+    expect(sich?.orders).toBe(1);
+    expect(sich?.ariaLabel).toBe("Січових Стрільців: 12 шт, до 15:21. Дії для філії");
   });
 
-  it("narrows filial columns to 100px for 5–6 filials and scrolls beyond", () => {
-    expect(sheetLayout(5).columns).toContain("repeat(5, 100px)");
-    expect(sheetLayout(6).columns).toContain("repeat(6, 100px)");
-    expect(sheetLayout(6).wide).toBe(false);
-    expect(sheetLayout(7).wide).toBe(true);
+  it("flags overdue filials and priorities that differ from the batch", () => {
+    const [group] = groupPresentationTasks(croissant(), 300);
+    const [dnipro, sich, berez] = batchTiles(group, filials, at(9, 42));
+    expect(berez).toMatchObject({ priority: null, due: { text: "−32\u00a0хв", short: "−32\u00a0хв", late: true } });
+    expect(berez?.ariaLabel).toBe("Березнева: 24 шт, до 09:10, прострочено 32\u00a0хв. Дії для філії");
+    expect(sich?.priority).toBe("HIGH");
+    expect(dnipro).toMatchObject({ priority: "MEDIUM", due: { text: "до 12:10", late: false } });
+    // The visible priority chip (or compact rail) is spoken too, before the order count.
+    expect(sich?.ariaLabel).toBe(
+      "Січових Стрільців: 18 шт, до 10:05, пріоритет високий. Дії для філії"
+    );
+    expect(dnipro?.ariaLabel).toBe("Дніпровська Наб. 33: 30 шт, до 12:10, пріоритет нормальний. Дії для філії");
+
+    const [twice] = groupPresentationTasks(
+      [
+        task({ filial_id: 2048, quantity: 9, operational_ready_at: iso(15, 9), priority: "CRITICAL" }),
+        task({ filial_id: 3361, quantity: 9, operational_ready_at: iso(15, 9), priority: "MEDIUM" }),
+        task({ filial_id: 3361, quantity: 6, operational_ready_at: iso(16, 40), priority: "MEDIUM" })
+      ],
+      300
+    );
+    expect(batchTiles(twice, [3361], at(12, 0))[0]?.ariaLabel).toBe(
+      "Березнева: 15 шт, до 15:09, пріоритет нормальний, 2 замовлення. Дії для філії"
+    );
+  });
+
+  it("names the day of a readiness that is not today and copes without one", () => {
+    const [tomorrow] = groupPresentationTasks(
+      [task({ operational_ready_at: new Date(2026, 9, 1, 0, 43).toISOString() })],
+      300
+    );
+    // Compact tiles drop «до» before a day word, so the time keeps to one 13 px line.
+    expect(batchTiles(tomorrow, [3361], at(20, 0))[0]?.due).toEqual({
+      text: "до завтра\u00a000:43",
+      short: "завтра\u00a000:43",
+      late: false
+    });
+
+    const [noTime] = groupPresentationTasks([task({ operational_ready_at: null, unit: "кг", quantity: 1.5 })], 300);
+    const [tile] = batchTiles(noTime, [3361], at(8, 0));
+    expect(tile?.due).toBeNull();
+    expect(tile?.ariaLabel).toBe("Березнева: 1,5 кг, без часу готовності. Дії для філії");
+  });
+});
+
+describe("filial popover", () => {
+  it("titles the slice and lists its orders earliest first", () => {
+    const members = [
+      task({ filial_id: 3361, quantity: 6, operational_ready_at: iso(16, 40), priority: "HIGH" }),
+      task({ filial_id: 3361, quantity: 9, operational_ready_at: iso(15, 9) })
+    ];
+    const [slice] = sliceByFilial(members);
+    expect(sliceLabel(slice, "шт")).toBe("Березнева · 15 шт");
+    expect(sliceOrders(slice, "шт", at(12, 0))).toEqual([
+      { id: members[1].id, due: "до 15:09", quantity: "9 шт" },
+      { id: members[0].id, due: "до 16:40", quantity: "6 шт" }
+    ]);
+  });
+
+  it("reads the shelf stock from the first member that knows it", () => {
+    expect(shelfStockText([null, 0.4, 0.5], "кг")).toBe("0,4 кг");
+    expect(shelfStockText([0], "шт")).toBe("0 шт");
+    expect(shelfStockText([null, null], "шт")).toBe("невідомий");
+  });
+});
+
+describe("completion row labels", () => {
+  it("adds the readiness only where a filial has several orders", () => {
+    const members = [
+      task({ filial_id: 3361, operational_ready_at: iso(15, 9) }),
+      task({ filial_id: 2048, operational_ready_at: iso(15, 21) }),
+      task({ filial_id: 3361, operational_ready_at: iso(16, 40) }),
+      task({ filial_id: 3361, operational_ready_at: null })
+    ];
+    expect(memberLabels(members, at(12, 0))).toEqual([
+      "Березнева · до 15:09",
+      "Січових Стрільців",
+      "Березнева · до 16:40",
+      "Березнева · без часу"
+    ]);
+  });
+});
+
+describe("grid layouts", () => {
+  it("gives the tiles the flexible column and narrows the side columns from 4 filials", () => {
+    expect(sheetLayout(3)).toEqual({
+      columns: "176px minmax(0, 1fr) 136px 232px",
+      tiles: "repeat(3, minmax(0, 1fr))",
+      compact: false
+    });
+    expect(sheetLayout(4)).toEqual({
+      columns: "150px minmax(0, 1fr) 120px 224px",
+      tiles: "repeat(4, minmax(0, 1fr))",
+      compact: true
+    });
+    expect(sheetLayout(5)).toEqual({
+      columns: "150px minmax(0, 1fr) 120px 224px",
+      tiles: "repeat(5, minmax(0, 1fr))",
+      compact: true
+    });
+    expect(sheetLayout(6).tiles).toBe("repeat(6, minmax(0, 1fr))");
+  });
+
+  it("wraps the tiles from 7 filials instead of scrolling sideways", () => {
+    expect(sheetLayout(7)).toEqual({
+      columns: "150px minmax(0, 1fr) 120px 224px",
+      tiles: "repeat(auto-fill, minmax(112px, 1fr))",
+      compact: true
+    });
+  });
+
+  it("narrows prep columns to 100px for 5–6 filials and scrolls beyond", () => {
+    expect(prepLayout(4).columns).toBe("minmax(240px, 1fr) repeat(4, 110px) 140px minmax(220px, 300px)");
     expect(prepLayout(6).columns).toContain("repeat(6, 100px)");
+    expect(prepLayout(6).wide).toBe(false);
     expect(prepLayout(7).wide).toBe(true);
   });
 });

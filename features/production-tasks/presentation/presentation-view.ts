@@ -1,5 +1,5 @@
-// Pure view logic of the kitchen presentation view (labels, layouts, the
-// prep sheet and the group-completion input). Unit-tested in
+// Pure view logic of the kitchen presentation view (labels, filial tiles,
+// layouts, the prep sheet and the group-completion input). Unit-tested in
 // tests/presentation-view.test.ts; grouping itself lives in
 // lib/presentation-grouping.ts.
 
@@ -28,12 +28,16 @@ import { BAKERY_TYPES } from "@/lib/task-badges";
 
 type Forms = [string, string, string];
 
-export const WORDS: Record<"batch" | "batchAcc" | "task" | "filial" | "filialAcc" | "position", Forms> = {
+export const WORDS: Record<
+  "batch" | "batchAcc" | "task" | "filial" | "filialAcc" | "order" | "position",
+  Forms
+> = {
   batch: ["партія", "партії", "партій"],
   batchAcc: ["партію", "партії", "партій"],
   task: ["задача", "задачі", "задач"],
   filial: ["філія", "філії", "філій"],
   filialAcc: ["філію", "філії", "філій"],
+  order: ["замовлення", "замовлення", "замовлень"],
   position: ["позиція", "позиції", "позицій"]
 };
 
@@ -172,31 +176,149 @@ export function laneBadges(groups: TaskGroup<GroupableTask>[]): {
   return { promo: Array.from(promo), guest, ecom, bakeryType };
 }
 
-/** «на 3 філії» / «лише Березнева». */
+/** «на 3 філії» / «одна філія». */
 export function filialSpreadLabel(filialIds: number[]): string {
-  if (filialIds.length === 1) return `лише ${getFilialShortName(filialIds[0])}`;
+  if (filialIds.length === 1) return "одна філія";
   return `на ${countLabel(filialIds.length, WORDS.filialAcc)}`;
 }
 
 /**
- * Second line of the batch status column. The window start sits under the
- * deadline column's day line; the end names its own day when it is not today.
+ * The grouping window of a batch, «12:09–17:09». A start that is not today
+ * carries its day; an end on another day than the start names its own
+ * («22:30–03:30 (завтра)»). Null for a batch without readiness.
  */
-export function batchStatusLine(
+export function batchWindowText(
   group: TaskGroup<GroupableTask>,
   windowMinutes: number,
   now: number
-): string {
-  const parts: string[] = [];
-  if (group.kind === "window" && group.deadline != null) {
-    const end = group.deadline + windowMinutes * 60000;
-    const endDay = clockDay(end, now);
-    parts.push(`вікно ${clockTime(group.deadline)}–${clockTime(end)}${endDay ? ` (${endDay})` : ""}`);
-  } else if (group.kind === "no_time") {
-    parts.push("без часу готовності");
-  }
-  parts.push(countLabel(group.filialIds.length, WORDS.filial));
-  return parts.join(" · ");
+): string | null {
+  if (group.deadline == null) return null;
+  const end = group.deadline + windowMinutes * 60000;
+  const endDay = clockDay(end, now);
+  const tail = endDay !== clockDay(group.deadline, now) ? `\u00a0(${endDay ?? "сьогодні"})` : "";
+  return `${formatClock(group.deadline, now)}–${clockTime(end)}${tail}`;
+}
+
+/**
+ * «остання до 16:40» under a batch's readiness, when its last order is due
+ * later than the first. The day is named only when it differs from the
+ * deadline's, which the cell already shows above the time.
+ */
+export function batchLastText(group: TaskGroup<GroupableTask>, now: number): string | null {
+  if (group.members.length < 2 || group.deadline == null || group.last == null) return null;
+  if (group.last <= group.deadline) return null;
+  const sameDay = clockDay(group.last, now) === clockDay(group.deadline, now);
+  return `остання до ${sameDay ? clockTime(group.last) : formatClock(group.last, now)}`;
+}
+
+/** Presentation filials with no order in the batch, by short name. */
+export function absentFilialNames(group: TaskGroup<GroupableTask>, filialIds: number[]): string[] {
+  return filialIds.filter((filialId) => !group.filialIds.includes(filialId)).map(getFilialShortName);
+}
+
+// ─── filial tiles of a batch row ───
+
+export interface BatchTile<T extends GroupableTask> {
+  slice: FilialSlice<T>;
+  name: string;
+  /** Orders of the filial in the batch; the «×N» chip shows from 2. */
+  orders: number;
+  /** The filial's own priority, only when it differs from the batch's. */
+  priority: NormPriority | null;
+  /**
+   * «до 12:09» (the day named when not today), «−32 хв» once overdue; null
+   * without readiness. `short` is the compact tile's form: a day word stands
+   * in for «до» («завтра 00:43»), so the time keeps to one line.
+   */
+  due: { text: string; short: string; late: boolean } | null;
+  ariaLabel: string;
+}
+
+/**
+ * One slot per presentation filial in header order, so a filial keeps its
+ * place in every row; null where the filial has no order in the batch.
+ */
+export function batchTiles<T extends GroupableTask>(
+  group: TaskGroup<T>,
+  filialIds: number[],
+  now: number
+): (BatchTile<T> | null)[] {
+  const slices = new Map(sliceByFilial(group.members).map((slice) => [slice.filialId, slice]));
+  return filialIds.map((filialId) => {
+    const slice = slices.get(filialId);
+    if (!slice) return null;
+    const name = getFilialShortName(filialId);
+    const orders = slice.members.length;
+    const priority = slice.priority !== group.priority ? slice.priority : null;
+    const facts = [`${formatQty(slice.quantity)} ${group.unit}`];
+    let due: BatchTile<T>["due"] = null;
+    if (slice.readyAt == null) {
+      facts.push("без часу готовності");
+    } else {
+      const clock = formatClock(slice.readyAt, now);
+      facts.push(`до ${clock}`);
+      if (slice.readyAt < now) {
+        facts.push(`прострочено ${lateText(slice.readyAt, now)}`);
+        const late = `−${lateText(slice.readyAt, now)}`;
+        due = { text: late, short: late, late: true };
+      } else {
+        const short = clockDay(slice.readyAt, now) ? clock : `до ${clock}`;
+        due = { text: `до ${clock}`, short, late: false };
+      }
+    }
+    if (priority) facts.push(`пріоритет ${PRIORITY_VIEW[priority].label.toLowerCase()}`);
+    if (orders > 1) facts.push(countLabel(orders, WORDS.order));
+    return {
+      slice,
+      name,
+      orders,
+      priority,
+      due,
+      ariaLabel: `${name}: ${facts.join(", ")}. Дії для філії`
+    };
+  });
+}
+
+/** «Березнева · 1,5 кг»: the popover title and the slice's action labels. */
+export function sliceLabel(slice: FilialSlice<GroupableTask>, unit: Unit): string {
+  return `${getFilialShortName(slice.filialId)} · ${formatQty(slice.quantity)} ${unit}`;
+}
+
+/** Shelf stock of a slice: its members share one shelf, so the first known value counts. */
+export function shelfStockText(stocks: (number | null)[], unit: Unit): string {
+  const known = stocks.find((stock) => stock != null);
+  return known != null ? `${formatQty(known)} ${unit}` : "невідомий";
+}
+
+/** The orders of one filial in a batch, earliest first: «до 15:09» · «9 шт». */
+export function sliceOrders(
+  slice: FilialSlice<GroupableTask>,
+  unit: Unit,
+  now: number
+): { id: string; due: string; quantity: string }[] {
+  return slice.members
+    .map((member) => ({ member, ready: readyMs(member.operational_ready_at) }))
+    .sort((a, b) => byDeadline(a.ready, b.ready))
+    .map(({ member, ready }) => ({
+      id: member.id,
+      due: ready != null ? `до ${formatClock(ready, now)}` : "без часу",
+      quantity: `${formatQty(member.quantity)} ${unit}`
+    }));
+}
+
+/**
+ * Row names of the completion modal. A filial with several orders among the
+ * members names each row by its readiness: «Березнева · до 15:09».
+ */
+export function memberLabels(members: GroupableTask[], now: number): string[] {
+  const orders = new Map<number, number>();
+  members.forEach((member) => orders.set(member.filial_id, (orders.get(member.filial_id) ?? 0) + 1));
+  return members.map((member) => {
+    const name = getFilialShortName(member.filial_id);
+    if ((orders.get(member.filial_id) ?? 0) < 2) return name;
+    const ready = readyMs(member.operational_ready_at);
+    return `${name} · ${ready != null ? `до ${formatClock(ready, now)}` : "без часу"}`;
+  });
 }
 
 export function scopeEyebrow(
@@ -252,26 +374,33 @@ export function producedByFilial(
 export interface GridLayout {
   columns: string;
   gap: number;
-  /** The columns cannot fit a 1340 px tablet: the sheet scrolls sideways. */
+  /** The columns cannot fit a 1340 px tablet: the prep sheet scrolls sideways. */
   wide: boolean;
 }
 
-/**
- * Batch sheet columns: deadline · status · one column per filial · Σ · actions.
- * 5–6 filials narrow the filial columns (and the flexible ones) so the sheet
- * still fits the 1284 px content width of a 1340 px tablet.
- */
-export function sheetLayout(filialCount: number): GridLayout {
-  if (filialCount <= 4) {
-    return { columns: `140px minmax(200px, 1fr) repeat(${filialCount}, 120px) 150px 216px`, gap: 12, wide: false };
-  }
-  if (filialCount === 5) {
-    return { columns: "140px minmax(176px, 1fr) repeat(5, 100px) 150px 216px", gap: 8, wide: false };
-  }
+export interface SheetLayout {
+  /** Header and rows: readiness · filial tiles · Σ · actions. */
+  columns: string;
+  /** Tile slots, shared by the header chips; from 7 filials they wrap onto more lines. */
+  tiles: string;
+  /**
+   * 4+ filials: narrower side columns, two-line tile names and the readiness
+   * on its own line. At 4 the standard 17 px names already wrap in a 160 px
+   * tile and push rows to ~140–160 px; compact keeps them at ~121.
+   */
+  compact: boolean;
+}
+
+/** Batch sheet grid; fits the 1284 px content width of a 1340 px tablet for any filial count. */
+export function sheetLayout(filialCount: number): SheetLayout {
+  const compact = filialCount >= 4;
   return {
-    columns: `120px minmax(100px, 1fr) repeat(${filialCount}, 100px) 120px 216px`,
-    gap: 8,
-    wide: filialCount > 6
+    columns: compact ? "150px minmax(0, 1fr) 120px 224px" : "176px minmax(0, 1fr) 136px 232px",
+    tiles:
+      filialCount >= 7
+        ? "repeat(auto-fill, minmax(112px, 1fr))"
+        : `repeat(${Math.max(1, filialCount)}, minmax(0, 1fr))`,
+    compact
   };
 }
 

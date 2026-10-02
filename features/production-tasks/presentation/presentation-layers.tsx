@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { getFilialShortName } from "@/domain/filials";
 import type { TaskGroup } from "@/lib/presentation-grouping";
@@ -8,11 +8,17 @@ import type { KitchenTask } from "../types";
 import {
   PRIORITY_VIEW,
   WORDS,
+  absentFilialNames,
+  batchWindowText,
   countLabel,
   formatClock,
   formatQty,
+  formatWindowHours,
   lateText,
+  shelfStockText,
   sliceByFilial,
+  sliceLabel,
+  sliceOrders,
   type FilialSlice
 } from "./presentation-view";
 import styles from "./presentation.module.css";
@@ -71,18 +77,26 @@ export function CheckIcon({ size = 20 }: { size?: number }) {
 }
 
 /**
- * A `position: fixed` layer next to its anchor. Opens below when there is
- * room, flips above otherwise; closes on an outside tap, Escape or scroll.
- * Takes focus once placed and hands it back to the anchor on close.
+ * A `position: fixed` layer next to its anchor, aligned to the anchor's end
+ * (or start) edge. Opens below when there is room, flips above otherwise;
+ * closes on an outside tap, Escape or scroll. Takes focus once placed and
+ * hands it back to the anchor on close.
+ *
+ * The placement follows the anchor and the layer's own size after every
+ * render (the board refetches every 20 s: rows above can go, the popover can
+ * gain an orders box) and on resize; a layer whose anchor has left the
+ * viewport closes, so it never sits beside another row.
  */
 export function FloatingLayer({
   anchor,
+  align = "end",
   className,
   label,
   onClose,
   children
 }: {
   anchor: HTMLElement;
+  align?: "start" | "end";
   className: string;
   label: string;
   onClose: () => void;
@@ -93,18 +107,38 @@ export function FloatingLayer({
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
-  useLayoutEffect(() => {
+  const place = useCallback(() => {
     const layer = ref.current;
     if (!layer) return;
     const rect = anchor.getBoundingClientRect();
+    if (rect.bottom <= 0 || rect.top >= window.innerHeight) {
+      closeRef.current();
+      return;
+    }
     const height = layer.offsetHeight;
     const width = layer.offsetWidth;
     const below = rect.bottom + GAP;
     const top =
       below + height > window.innerHeight - GAP ? Math.max(GAP, rect.top - height - GAP) : below;
-    const left = Math.max(GAP, Math.min(rect.right - width, window.innerWidth - width - GAP));
-    setPosition({ top, left });
-  }, [anchor]);
+    const start = align === "start" ? rect.left : rect.right - width;
+    const left = Math.max(GAP, Math.min(start, window.innerWidth - width - GAP));
+    setPosition((current) => (current?.top === top && current.left === left ? current : { top, left }));
+  }, [anchor, align]);
+
+  // Every commit: the anchor may have moved and the content changed with fresh data.
+  useLayoutEffect(() => {
+    place();
+  });
+
+  // Size changes that come without a render of this layer.
+  useEffect(() => {
+    const layer = ref.current;
+    if (!layer || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => place());
+    observer.observe(layer);
+    observer.observe(anchor);
+    return () => observer.disconnect();
+  }, [anchor, place]);
 
   // A hidden (not yet placed) layer cannot take focus.
   const placed = position != null;
@@ -158,6 +192,9 @@ export function FloatingLayer({
 export function KebabMenu({
   group,
   anchor,
+  filialIds,
+  windowMinutes,
+  now,
   onClose,
   onSubset,
   onRevert,
@@ -165,14 +202,36 @@ export function KebabMenu({
 }: {
   group: TaskGroup<KitchenTask>;
   anchor: HTMLElement;
+  filialIds: number[];
+  windowMinutes: number;
+  now: number;
   onClose: () => void;
   onSubset: () => void;
   onRevert: () => void;
   onCannot: () => void;
 }) {
   const inProgress = group.status === "IN_PROGRESS";
+  const batchWindow = batchWindowText(group, windowMinutes, now);
+  const absent = absentFilialNames(group, filialIds);
   return (
     <FloatingLayer anchor={anchor} className={styles.menu} label="Дії з партією" onClose={onClose}>
+      <div className={styles.menuInfo}>
+        <p>
+          {batchWindow ? (
+            <>
+              Вікно партії <b>{batchWindow}</b>
+            </>
+          ) : (
+            "Без часу готовності"
+          )}{" "}
+          · групування {formatWindowHours(windowMinutes)}
+        </p>
+        {absent.length ? (
+          <p>
+            Не в цій партії: <b>{absent.join(", ")}</b>
+          </p>
+        ) : null}
+      </div>
       {inProgress ? (
         <button type="button" className={styles.menuItem} onClick={onRevert}>
           ↩ Повернути в «До виконання»
@@ -194,10 +253,12 @@ export function KebabMenu({
   );
 }
 
+/** Actions for one filial of a batch: all of its orders in that batch at once. */
 export function CellPopover({
   group,
   slice,
   anchor,
+  windowMinutes,
   now,
   busy,
   onClose,
@@ -208,6 +269,7 @@ export function CellPopover({
   group: TaskGroup<KitchenTask>;
   slice: FilialSlice<KitchenTask>;
   anchor: HTMLElement;
+  windowMinutes: number;
   now: number;
   busy: boolean;
   onClose: () => void;
@@ -216,18 +278,22 @@ export function CellPopover({
   onCannot: () => void;
 }) {
   const name = getFilialShortName(slice.filialId);
+  const title = sliceLabel(slice, group.unit);
   const late = slice.readyAt != null && slice.readyAt < now;
-  const stockTask = slice.members.find((member) => member.current_stock_qty != null);
-  const stock = stockTask?.current_stock_qty;
-  const priority = PRIORITY_VIEW[slice.priority];
+  const batchWindow = batchWindowText(group, windowMinutes, now);
+  const orders = slice.members.length > 1 ? sliceOrders(slice, group.unit, now) : [];
   const inProgress = group.status === "IN_PROGRESS";
 
   return (
-    <FloatingLayer anchor={anchor} className={styles.popover} label={`${name} · ${group.lagerName}`} onClose={onClose}>
+    <FloatingLayer
+      anchor={anchor}
+      align="start"
+      className={styles.popover}
+      label={`${title} · ${group.lagerName}`}
+      onClose={onClose}
+    >
       <div className={styles.popHead}>
-        <p className={styles.popTitle}>
-          {name} · {formatQty(slice.quantity)} {group.unit}
-        </p>
+        <p className={styles.popTitle}>{title}</p>
         <div className={styles.popFacts}>
           <span className={styles.popFact}>
             {slice.readyAt != null ? (
@@ -235,7 +301,7 @@ export function CellPopover({
                 <span>
                   Готовність до <b>{formatClock(slice.readyAt, now)}</b>
                 </span>
-                <span className={`${styles.badge} ${late ? styles.badgeLate : styles.badgeOnTime}`}>
+                <span className={`${styles.badge} ${late ? styles.badgeOverdue : styles.badgeOnTime}`}>
                   {late ? `Прострочено ${lateText(slice.readyAt, now)}` : "Вчасно"}
                 </span>
               </>
@@ -246,21 +312,40 @@ export function CellPopover({
           <span className={styles.popFact}>
             <span>
               Залишок на полиці:{" "}
-              <b>{stock != null ? `${formatQty(stock)} ${group.unit}` : "—"}</b>
+              <b>{shelfStockText(slice.members.map((member) => member.current_stock_qty), group.unit)}</b>
             </span>
           </span>
           <span className={styles.popFact}>
-            <span className={`${styles.badge} ${priorityBadgeClass(slice.priority)}`}>{priority.label}</span>
+            <span className={`${styles.badge} ${priorityBadgeClass(slice.priority)}`}>
+              {PRIORITY_VIEW[slice.priority].label}
+            </span>
+            {batchWindow ? <span>· вікно партії {batchWindow}</span> : null}
           </span>
         </div>
       </div>
+      {orders.length ? (
+        <div className={styles.popOrders}>
+          <p className={styles.popOrdersHead}>
+            <span>{countLabel(orders.length, WORDS.order)} в цій партії</span>
+            <span>
+              {formatQty(slice.quantity)} {group.unit}
+            </span>
+          </p>
+          {orders.map((order) => (
+            <p key={order.id} className={styles.popOrder}>
+              <span>{order.due}</span>
+              <span>{order.quantity}</span>
+            </p>
+          ))}
+        </div>
+      ) : null}
       {inProgress ? (
         <button type="button" className={`${styles.popPrimary} ${styles.popPrimaryDone}`} disabled={busy} onClick={onComplete}>
-          ✓ Завершити лише цю філію
+          ✓ Завершити лише {title}
         </button>
       ) : (
         <button type="button" className={styles.popPrimary} disabled={busy} onClick={onStart}>
-          ▶ Почати лише цю філію
+          ▶ Почати лише {title}
         </button>
       )}
       <button type="button" className={styles.popDanger} onClick={onCannot}>

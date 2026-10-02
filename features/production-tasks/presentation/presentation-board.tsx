@@ -108,11 +108,17 @@ export function PresentationBoard({
   const [busyKeys, setBusyKeys] = useState<ReadonlySet<string>>(() => new Set());
 
   const layerGroup = layer ? groups.find((group) => group.key === layer.groupKey) : undefined;
+  const cellSlice =
+    layer?.kind === "cell" && layerGroup
+      ? sliceByFilial(layerGroup.members).find((slice) => slice.filialId === layer.filialId)
+      : undefined;
 
-  // A refetch or a filter change can remove (or re-key) the row the layer is
-  // attached to; a detached anchor would leave the layer floating in place.
+  // A refetch or a filter change can remove (or re-key) the row or the filial
+  // the layer is attached to; a detached anchor would leave it floating in place.
   useEffect(() => {
-    if (layer && (!layerGroup || !layer.anchor.isConnected)) setLayer(null);
+    if (layer && (!layerGroup || !layer.anchor.isConnected || (layer.kind === "cell" && !cellSlice))) {
+      setLayer(null);
+    }
   });
 
   const closeLayer = useCallback(() => setLayer(null), []);
@@ -249,11 +255,6 @@ export function PresentationBoard({
     [startMembers]
   );
 
-  const cellSlice =
-    layer?.kind === "cell" && layerGroup
-      ? sliceByFilial(layerGroup.members).find((slice) => slice.filialId === layer.filialId)
-      : undefined;
-
   const emptyTitle = groups.length
     ? "Немає партій за цими фільтрами"
     : `Для «${presentation.name}» зараз немає партій`;
@@ -281,12 +282,12 @@ export function PresentationBoard({
       ) : (
         <PresentationSheet
           filialIds={filialIds}
-          windowMinutes={windowMinutes}
           lanes={lanes}
           selectedPriority={selectedPriority}
           now={now}
           busyKeys={busyKeys}
           openMenuKey={layer?.kind === "kebab" ? layer.groupKey : null}
+          openCell={layer?.kind === "cell" ? layer : null}
           handlers={handlers}
         />
       )}
@@ -295,6 +296,9 @@ export function PresentationBoard({
         <KebabMenu
           group={layerGroup}
           anchor={layer.anchor}
+          filialIds={filialIds}
+          windowMinutes={windowMinutes}
+          now={now}
           onClose={closeLayer}
           onSubset={() => {
             closeLayer();
@@ -316,6 +320,7 @@ export function PresentationBoard({
           group={layerGroup}
           slice={cellSlice}
           anchor={layer.anchor}
+          windowMinutes={windowMinutes}
           now={now}
           busy={busyKeys.has(layerGroup.key)}
           onClose={closeLayer}

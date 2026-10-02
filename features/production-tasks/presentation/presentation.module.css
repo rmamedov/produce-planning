@@ -1,6 +1,6 @@
 /* Kitchen presentation view — batch sheet, prep sheet, group modals.
    Spacing: 4/8/12/16/20/24/32 · controls 48 / 56 (primary) / 58 (modal footer)
-   · radii 12/16/20/24/pill · text 12 (uppercase labels), 13–17, 20, 24, 26, 28, 32, 46. */
+   · radii 12/16/20/24/pill · text 12 (uppercase labels, chips), 13–17, 20, 22, 24, 26, 28, 32, 46. */
 
 .root {
   --surface: #ffffff;
@@ -147,32 +147,21 @@
 
 /* ─── batch sheet ─── */
 .sheet {
-  --cols: 140px minmax(200px, 1fr) repeat(3, 120px) 150px 216px;
-  --col-gap: 12px;
-}
-/* A sideways scroller would capture the sticky header, so the wide sheet
-   scrolls both ways inside its own box and the header sticks within it. */
-.sheetWide {
-  max-height: calc(100vh - 160px);
-  max-height: calc(100dvh - 160px);
-  overflow: auto;
-}
-.sheetWide .colHead,
-.sheetWide .lane,
-.sheetWide .tier {
-  min-width: max-content;
+  --cols: 176px minmax(0, 1fr) 136px 232px;
+  --tiles: repeat(3, minmax(0, 1fr));
 }
 
+/* Same columns and side paddings as .row, so each chip sits above its tile slot. */
 .colHead {
   position: sticky;
   top: 0;
   z-index: 5;
   display: grid;
   grid-template-columns: var(--cols);
-  column-gap: var(--col-gap);
-  align-items: stretch;
-  min-height: 56px;
-  padding: 0 16px 0 22px;
+  column-gap: 12px;
+  align-items: center;
+  min-height: 64px;
+  padding: 8px 16px 8px 22px;
   margin-bottom: 12px;
   border-radius: var(--r-16);
   background: var(--surface);
@@ -192,30 +181,30 @@
 .colLabelEnd {
   justify-content: flex-end;
 }
-.filialHead {
+.focusChip {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
   min-width: 0;
-  padding: 8px 0;
+  min-height: 48px;
+  padding: 0 12px;
   border: 0;
-  background: transparent;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border-2);
   color: var(--fg-1);
-  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.15;
   text-align: center;
-  transition: background var(--dur) var(--easing);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: background var(--dur) var(--easing), color var(--dur) var(--easing);
 }
-.filialHead:hover {
-  background: var(--black-4);
-}
-.filialHeadFocused {
-  background: var(--blue-100);
-  box-shadow: inset 0 -2px 0 var(--blue-500);
-}
-.filialHeadFocused:hover {
-  background: var(--blue-100);
+.focusChipOn {
+  background: var(--blue-500);
+  box-shadow: none;
+  color: #fff;
 }
 .filialHeadName {
   max-width: 100%;
@@ -229,9 +218,6 @@
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-}
-.filialHeadFocused .filialHeadName {
-  color: var(--blue-700);
 }
 .filialHeadId {
   font-size: 12px;
@@ -343,10 +329,6 @@
   background: var(--green-100);
   color: var(--green-700);
 }
-.badgeLate {
-  background: var(--red-100);
-  color: var(--red-700);
-}
 .badgeWork {
   background: var(--blue-100);
   color: var(--blue-700);
@@ -369,10 +351,10 @@
 .row {
   display: grid;
   grid-template-columns: var(--cols);
-  column-gap: var(--col-gap);
-  align-items: stretch;
-  min-height: 80px;
-  padding: 0 16px 0 22px;
+  column-gap: 12px;
+  align-items: center;
+  min-height: 96px;
+  padding: 12px 16px 12px 22px;
   border-top: 1px solid var(--border-1);
   background: var(--surface);
   box-shadow: inset 6px 0 0 var(--rail, var(--yellow-400));
@@ -392,15 +374,23 @@
   --rail: var(--blue-500);
 }
 
-.cell {
+.readyCell {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  align-items: flex-start;
+  gap: 8px;
   min-width: 0;
-  padding: 12px 0;
+}
+.readyCell .badge {
+  max-width: 100%;
+  white-space: normal;
+}
+.deadlineBox {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .deadlineDay {
-  margin-bottom: 4px;
   font-size: 13px;
   font-weight: 700;
   line-height: 1.15;
@@ -418,124 +408,236 @@
   color: var(--red-700);
 }
 .deadlineSub {
-  margin-top: 4px;
   font-size: 13px;
   line-height: 1.25;
   color: var(--fg-3);
 }
-.latePill {
-  align-self: flex-start;
-  margin-top: 4px;
-  padding: 4px 8px;
-  border-radius: var(--r-12);
+.badgeOverdue {
   background: var(--red-700);
   color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.15;
-}
-.track {
-  position: relative;
-  width: 104px;
-  height: 6px;
-  margin-top: 8px;
-  border-radius: var(--r-pill);
-  background: var(--border-2);
-}
-.trackFill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  border-radius: var(--r-pill);
-}
-.trackDot {
-  position: absolute;
-  top: -3px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  transform: translateX(-50%);
 }
 
-.statusCell {
+/* filial tiles; .tiles also lays out the header chips */
+.tiles {
+  display: grid;
+  grid-template-columns: var(--tiles);
   gap: 8px;
-  align-items: flex-start;
+  min-width: 0;
 }
-.statusLine {
-  font-size: 13px;
-  color: var(--fg-3);
-}
-
-/* filial cell */
-.fcell,
-.fcellEmpty {
+/* line-height is set here: the app's preflight gives buttons 1.5, which adds ~8 px per tile. */
+.tile {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 4px;
   min-width: 0;
-  /* the top 20px keep the priority chip clear of the quantity */
-  padding: 20px 0 12px;
-  text-align: center;
-  transition: opacity var(--dur) var(--easing), background var(--dur) var(--easing);
-}
-.fcell {
+  min-height: 72px;
+  padding: 8px 12px 10px;
   border: 0;
-  background: transparent;
-  color: inherit;
+  border-radius: var(--r-12);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border-2), 0 1px 0 rgba(0, 0, 0, 0.06);
+  color: var(--fg-1);
+  line-height: 1.15;
+  text-align: left;
   cursor: pointer;
+  transition:
+    box-shadow var(--dur) var(--easing),
+    background var(--dur) var(--easing),
+    opacity var(--dur) var(--easing);
 }
-.fcell:hover {
-  background: rgba(35, 88, 209, 0.04);
+.tile:active:not([aria-disabled="true"]) {
+  background: var(--blue-50);
 }
-.fqty {
+/* Busy: aria-disabled, so the tile keeps focus when its popover closes. */
+.tile[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: default;
+}
+.tileFocused {
+  background: var(--blue-100);
+  box-shadow: 0 0 0 2px var(--blue-500);
+}
+.tileOpen {
+  background: var(--blue-50);
+  box-shadow: 0 0 0 2px var(--blue-500);
+}
+.sheet[data-focus] .tile:not(.tileFocused) {
+  opacity: 0.3;
+}
+/* An open, focused or keyboard-focused tile shows its own ring, not the hint. */
+@media (prefers-reduced-motion: no-preference) {
+  .tilePulse:not(.tileOpen):not(.tileFocused):not(:focus-visible) {
+    animation: tilesHint 1.4s ease-in-out 2;
+  }
+}
+@keyframes tilesHint {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px var(--border-2), 0 1px 0 rgba(0, 0, 0, 0.06);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--blue-200);
+  }
+}
+/* Compact tiles: a filial priority that differs from the batch, as an inset rail like the row's. */
+.tileRail::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 4px 0 0 var(--tile-rail);
+  pointer-events: none;
+}
+.tileRailCritical {
+  --tile-rail: var(--red-400);
+}
+.tileRailHigh {
+  --tile-rail: var(--orange-400);
+}
+.tileRailMedium {
+  --tile-rail: var(--yellow-400);
+}
+.tileHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 4px;
+}
+.tileName {
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.tileFocused .tileName {
+  color: var(--blue-700);
+}
+.tileGo {
+  flex: none;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--fg-4);
+}
+.tileLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  row-gap: 4px;
+}
+.tileQty {
   font-family: var(--font-display);
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.fqty small,
-.sigma small {
+.tileQty small {
   margin-left: 4px;
   font-family: var(--font-text);
+  font-size: 13px;
   font-weight: 600;
   color: var(--fg-3);
 }
-.fqty small {
-  font-size: 13px;
-}
-.fsub {
-  font-size: 13px;
-  color: var(--fg-3);
-}
-.fsubLate {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--red-700);
-}
-.fchip {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  padding: 0 4px;
+.tileOrders,
+.tilePriority {
+  align-self: center;
+  padding: 2px 8px;
   border-radius: var(--r-pill);
   font-size: 12px;
   font-weight: 700;
-  line-height: 16px;
+  line-height: 1.15;
+  white-space: nowrap;
 }
-.nil {
-  font-size: 20px;
-  color: var(--fg-4);
+.tileOrders {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--fg-1);
+  color: #fff;
+}
+.tileDue,
+.tileLate {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tileDue {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg-3);
+}
+.tileLate {
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--red-700);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+.slot {
+  min-height: 72px;
+}
+
+/* 4+ filials: two-line names, the readiness on its own line */
+.sheetCompact .tiles {
+  gap: 6px;
+}
+.sheetCompact .focusChip {
+  padding: 0 8px;
+  font-size: 14px;
+}
+.sheetCompact .deadline {
+  font-size: 24px;
+}
+.sheetCompact .tile {
+  justify-content: flex-start;
+  min-height: 96px;
+  padding: 8px;
+}
+.sheetCompact .slot {
+  min-height: 96px;
+}
+.sheetCompact .tileHead {
+  min-height: 34px;
+}
+.sheetCompact .tileName {
+  font-size: 14px;
+  line-height: 1.2;
+}
+/* The glyph moves into the side padding so «Дніпровська» fits a 114px tile unbroken. */
+.sheetCompact .tileGo {
+  margin-right: -4px;
+  font-size: 15px;
+}
+.sheetCompact .tileLine {
+  column-gap: 5px;
+}
+.sheetCompact .tileQty {
+  font-size: 22px;
+}
+.sheetCompact .tileQty small {
+  margin-left: 2px;
+}
+.sheetCompact .tileDue {
+  flex-basis: 100%;
+  margin-left: 0;
+  font-size: 13px;
+}
+.sheetCompact .tileLate {
+  margin-left: 0;
 }
 
 .sigCell {
+  display: flex;
+  flex-direction: column;
   align-items: flex-end;
+  min-width: 0;
   text-align: right;
-  transition: opacity var(--dur) var(--easing);
 }
 .sigma {
   font-family: var(--font-display);
@@ -546,7 +648,11 @@
   white-space: nowrap;
 }
 .sigma small {
+  margin-left: 4px;
+  font-family: var(--font-text);
   font-size: 15px;
+  font-weight: 600;
+  color: var(--fg-3);
 }
 .sigLine {
   max-width: 100%;
@@ -562,10 +668,11 @@
 }
 
 .actCell {
-  flex-direction: row;
+  display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+  min-width: 0;
 }
 .cta,
 .ctaDone {
@@ -575,7 +682,7 @@
   gap: 8px;
   min-width: 160px;
   height: 56px;
-  padding: 0 16px;
+  padding: 0 18px;
   border: 0;
   border-radius: var(--r-pill);
   background: var(--blue-500);
@@ -619,18 +726,9 @@
   color: var(--fg-1);
 }
 
-/* focus on one filial column */
-.sheet[data-focus] .fcell,
-.sheet[data-focus] .fcellEmpty,
-.sheet[data-focus] .sigCell {
-  opacity: 0.3;
-}
-.sheet[data-focus] .fcellFocused {
-  opacity: 1;
-  background: var(--blue-100);
-}
-.sheet[data-focus] .fcellFocused .fqty {
-  color: var(--blue-700);
+.nil {
+  font-size: 20px;
+  color: var(--fg-4);
 }
 
 /* empty states */
@@ -849,6 +947,21 @@
 }
 .menu {
   min-width: 300px;
+  max-width: 360px;
+}
+.menuInfo {
+  margin-bottom: 4px;
+  padding: 8px 12px 12px;
+  border-bottom: 1px solid var(--border-1);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg-3);
+}
+.menuInfo p {
+  margin: 0;
+}
+.menuInfo b {
+  color: var(--fg-2);
 }
 .menuItem,
 .menuItemDanger {
@@ -881,7 +994,7 @@
 }
 
 .popover {
-  width: 320px;
+  width: 360px;
 }
 .popHead {
   padding: 8px 8px 12px;
@@ -910,13 +1023,35 @@
 .popFact b {
   color: var(--fg-1);
 }
+.popOrders {
+  margin: 0 8px 12px;
+  padding: 8px 12px;
+  border-radius: var(--r-12);
+  background: var(--surface-2);
+  font-size: 14px;
+  color: var(--fg-2);
+}
+.popOrdersHead,
+.popOrder {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 4px 0;
+  font-variant-numeric: tabular-nums;
+}
+.popOrdersHead {
+  font-weight: 700;
+  color: var(--fg-1);
+}
 .popPrimary {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   width: 100%;
-  height: 56px;
+  min-height: 56px;
+  padding: 8px 16px;
   border: 0;
   border-radius: var(--r-pill);
   background: var(--blue-500);
@@ -924,6 +1059,8 @@
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
   cursor: pointer;
 }
 .popPrimaryDone {
@@ -1351,9 +1488,8 @@
   min-width: 0;
 }
 .dnameText {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .pdot {
   flex: none;
@@ -1369,9 +1505,6 @@
 }
 .pdotMedium {
   background: var(--yellow-400);
-}
-.pdotWork {
-  background: var(--blue-500);
 }
 .dsub {
   display: block;

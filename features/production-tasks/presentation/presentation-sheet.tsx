@@ -1,32 +1,26 @@
 "use client";
 
-import { Fragment, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { clsx } from "clsx";
 
 import { getFilialShortName } from "@/domain/filials";
-import {
-  normPriority,
-  readyMs,
-  type LagerLane,
-  type NormPriority,
-  type TaskGroup
-} from "@/lib/presentation-grouping";
+import type { LagerLane, NormPriority, TaskGroup } from "@/lib/presentation-grouping";
 import type { KitchenTask } from "../types";
 import { priorityBadgeClass } from "./presentation-layers";
 import {
   PRIORITY_VIEW,
   WORDS,
-  batchStatusLine,
+  batchLastText,
+  batchTiles,
   clockDay,
   clockTime,
   countLabel,
   filialSpreadLabel,
-  formatClock,
   formatQty,
   laneBadges,
   lateText,
   sheetLayout,
-  sliceByFilial
+  type BatchTile
 } from "./presentation-view";
 import styles from "./presentation.module.css";
 
@@ -41,6 +35,28 @@ const DOT_TONE: Record<NormPriority, string> = {
   HIGH: styles.pdotHigh,
   MEDIUM: styles.pdotMedium
 };
+
+/** A compact tile marks a filial priority that differs from the batch with its own rail. */
+const TILE_RAIL: Record<NormPriority, string> = {
+  CRITICAL: styles.tileRailCritical,
+  HIGH: styles.tileRailHigh,
+  MEDIUM: styles.tileRailMedium
+};
+
+const TILES_HINT_KEY = "kitchen.tilesHintShown";
+/** Two 1.4 s rings of .tilePulse. */
+const TILES_HINT_MS = 2800;
+
+/** True once per tablet session; without storage the hint is skipped. */
+function claimTilesHint(): boolean {
+  try {
+    if (window.sessionStorage.getItem(TILES_HINT_KEY)) return false;
+    window.sessionStorage.setItem(TILES_HINT_KEY, "1");
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function KebabIcon() {
   return (
@@ -58,27 +74,33 @@ export interface SheetHandlers {
   onCell: (group: TaskGroup<KitchenTask>, filialId: number, anchor: HTMLElement) => void;
 }
 
+export interface OpenCell {
+  groupKey: string;
+  filialId: number;
+}
+
 /**
- * «Партії»: one card per article (lager + unit) with its batches as rows and
- * one column per presentation filial. Tapping a filial header focuses it.
+ * «Партії»: one card per article (lager + unit) with its batches as rows;
+ * each row has a named tile per filial, in fixed slots under the header
+ * chips. Tapping a chip focuses that filial.
  */
 export function PresentationSheet({
   filialIds,
-  windowMinutes,
   lanes,
   selectedPriority,
   now,
   busyKeys,
   openMenuKey,
+  openCell,
   handlers
 }: {
   filialIds: number[];
-  windowMinutes: number;
   lanes: LagerLane<KitchenTask>[];
   selectedPriority: string;
   now: number;
   busyKeys: ReadonlySet<string>;
   openMenuKey: string | null;
+  openCell: OpenCell | null;
   handlers: SheetHandlers;
 }) {
   const [focus, setFocus] = useState<number | null>(null);
@@ -88,30 +110,59 @@ export function PresentationSheet({
   const tierSizes = new Map<NormPriority, number>();
   for (const lane of lanes) tierSizes.set(lane.bestPriority, (tierSizes.get(lane.bestPriority) ?? 0) + 1);
 
-  const vars = { "--cols": layout.columns, "--col-gap": `${layout.gap}px` } as CSSProperties;
+  const firstMulti =
+    lanes.flatMap((lane) => lane.groups).find((group) => group.filialIds.length > 1)?.key ?? null;
+  const [hintKey, setHintKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (firstMulti != null && claimTilesHint()) setHintKey(firstMulti);
+  }, [firstMulti]);
+  // Dropping the class keeps a remounted row from ringing again.
+  useEffect(() => {
+    if (hintKey == null) return;
+    const timer = window.setTimeout(() => setHintKey(null), TILES_HINT_MS);
+    return () => window.clearTimeout(timer);
+  }, [hintKey]);
+
+  // The hint has done its job once the cook taps a tile or a chip; the open
+  // and focus rings must not wait for the pulse to end.
+  const rowHandlers = useMemo<SheetHandlers>(
+    () => ({
+      ...handlers,
+      onCell: (group, filialId, anchor) => {
+        setHintKey(null);
+        handlers.onCell(group, filialId, anchor);
+      }
+    }),
+    [handlers]
+  );
+
+  const vars = { "--cols": layout.columns, "--tiles": layout.tiles } as CSSProperties;
 
   return (
     <div
-      className={clsx(styles.sheet, layout.wide && styles.sheetWide)}
+      className={clsx(styles.sheet, layout.compact && styles.sheetCompact)}
       data-focus={focused ?? undefined}
       style={vars}
     >
       <div className={styles.colHead}>
         <span className={styles.colLabel}>Готовність</span>
-        <span className={styles.colLabel}>Партія</span>
-        {filialIds.map((filialId) => (
-          <button
-            key={filialId}
-            type="button"
-            className={clsx(styles.filialHead, focused === filialId && styles.filialHeadFocused)}
-            aria-pressed={focused === filialId}
-            title="Виділити колонку філії"
-            onClick={() => setFocus((current) => (current === filialId ? null : filialId))}
-          >
-            <span className={styles.filialHeadName}>{getFilialShortName(filialId)}</span>
-            <span className={styles.filialHeadId}>{filialId}</span>
-          </button>
-        ))}
+        <div className={styles.tiles}>
+          {filialIds.map((filialId) => (
+            <button
+              key={filialId}
+              type="button"
+              className={clsx(styles.focusChip, focused === filialId && styles.focusChipOn)}
+              aria-pressed={focused === filialId}
+              title="Виділити філію"
+              onClick={() => {
+                setHintKey(null);
+                setFocus((current) => (current === filialId ? null : filialId));
+              }}
+            >
+              {getFilialShortName(filialId)}
+            </button>
+          ))}
+        </div>
         <span className={styles.colLabelEnd}>Разом</span>
         <span />
       </div>
@@ -133,11 +184,13 @@ export function PresentationSheet({
               dim={dim}
               filialIds={filialIds}
               focused={focused}
-              windowMinutes={windowMinutes}
+              compact={layout.compact}
               now={now}
               busyKeys={busyKeys}
               openMenuKey={openMenuKey}
-              handlers={handlers}
+              openCell={openCell}
+              hintKey={hintKey}
+              handlers={rowHandlers}
             />
           </Fragment>
         );
@@ -151,20 +204,24 @@ function Lane({
   dim,
   filialIds,
   focused,
-  windowMinutes,
+  compact,
   now,
   busyKeys,
   openMenuKey,
+  openCell,
+  hintKey,
   handlers
 }: {
   lane: LagerLane<KitchenTask>;
   dim: boolean;
   filialIds: number[];
   focused: number | null;
-  windowMinutes: number;
+  compact: boolean;
   now: number;
   busyKeys: ReadonlySet<string>;
   openMenuKey: string | null;
+  openCell: OpenCell | null;
+  hintKey: string | null;
   handlers: SheetHandlers;
 }) {
   const badges = laneBadges(lane.groups);
@@ -197,10 +254,12 @@ function Lane({
           group={group}
           filialIds={filialIds}
           focused={focused}
-          windowMinutes={windowMinutes}
+          compact={compact}
           now={now}
           busy={busyKeys.has(group.key)}
           menuOpen={openMenuKey === group.key}
+          openFilial={openCell?.groupKey === group.key ? openCell.filialId : null}
+          pulse={hintKey === group.key}
           handlers={handlers}
         />
       ))}
@@ -212,122 +271,79 @@ function BatchRow({
   group,
   filialIds,
   focused,
-  windowMinutes,
+  compact,
   now,
   busy,
   menuOpen,
+  openFilial,
+  pulse,
   handlers
 }: {
   group: TaskGroup<KitchenTask>;
   filialIds: number[];
   focused: number | null;
-  windowMinutes: number;
+  compact: boolean;
   now: number;
   busy: boolean;
   menuOpen: boolean;
+  openFilial: number | null;
+  pulse: boolean;
   handlers: SheetHandlers;
 }) {
   const inProgress = group.status === "IN_PROGRESS";
   const multi = group.members.length > 1;
   const overdue = group.deadline != null && group.deadline < now;
   const deadlineDay = group.deadline != null ? clockDay(group.deadline, now) : null;
-  const span = group.deadline != null && group.last != null ? group.last - group.deadline : 0;
-  const windowMs = windowMinutes * 60000;
-  const slices = new Map(sliceByFilial(group.members).map((slice) => [slice.filialId, slice]));
   const startedAt = group.startedAt ? Date.parse(group.startedAt) : Number.NaN;
+  const tiles = batchTiles(group, filialIds, now);
+  const lastText = batchLastText(group, now);
 
   return (
     <div className={clsx(styles.row, ROW_TONE[group.priority], inProgress && styles.rowWork)}>
-      <div className={styles.cell}>
-        {deadlineDay ? (
-          <span className={clsx(styles.deadlineDay, overdue && styles.deadlineLate)}>{deadlineDay}</span>
-        ) : null}
-        <span className={clsx(styles.deadline, overdue && styles.deadlineLate)}>
-          {group.deadline != null ? clockTime(group.deadline) : "—"}
-        </span>
-        {overdue && group.deadline != null ? (
-          <span className={styles.latePill}>Прострочено {lateText(group.deadline, now)}</span>
-        ) : multi && span > 0 && group.last != null ? (
-          <span className={styles.deadlineSub}>остання до {formatClock(group.last, now)}</span>
-        ) : null}
-        {multi && group.deadline != null ? (
-          <span className={styles.track} aria-hidden="true">
-            <span
-              className={clsx(styles.trackFill, inProgress ? styles.pdotWork : DOT_TONE[group.priority])}
-              style={{ width: `${Math.min(1, span / windowMs) * 100}%` }}
-            />
-            {group.members.map((member) => {
-              const ready = readyMs(member.operational_ready_at);
-              if (ready == null || group.deadline == null) return null;
-              const offset = Math.min(1, Math.max(0, (ready - group.deadline) / windowMs));
-              return (
-                <span
-                  key={member.id}
-                  className={clsx(styles.trackDot, inProgress ? styles.pdotWork : DOT_TONE[normPriority(member.priority)])}
-                  style={{ left: `${offset * 100}%` }}
-                />
-              );
-            })}
+      <div className={styles.readyCell}>
+        <span className={styles.deadlineBox}>
+          {deadlineDay ? <span className={styles.deadlineDay}>{deadlineDay}</span> : null}
+          <span className={clsx(styles.deadline, overdue && styles.deadlineLate)}>
+            {group.deadline != null ? clockTime(group.deadline) : "—"}
           </span>
-        ) : null}
-      </div>
-
-      <div className={clsx(styles.cell, styles.statusCell)}>
+        </span>
         {inProgress ? (
           <span className={clsx(styles.badge, styles.badgeWork)}>
             {Number.isNaN(startedAt) ? "В роботі" : `В роботі · з ${clockTime(startedAt)}`}
+          </span>
+        ) : overdue && group.deadline != null ? (
+          <span className={clsx(styles.badge, styles.badgeOverdue)}>
+            Прострочено {lateText(group.deadline, now)}
           </span>
         ) : (
           <span className={clsx(styles.badge, priorityBadgeClass(group.priority))}>
             {PRIORITY_VIEW[group.priority].label}
           </span>
         )}
-        <span className={styles.statusLine}>{batchStatusLine(group, windowMinutes, now)}</span>
+        {lastText ? <span className={styles.deadlineSub}>{lastText}</span> : null}
       </div>
 
-      {filialIds.map((filialId) => {
-        const slice = slices.get(filialId);
-        const isFocused = focused === filialId;
-        if (!slice) {
-          return (
-            <div key={filialId} className={clsx(styles.fcellEmpty, isFocused && styles.fcellFocused)}>
-              <span className={styles.nil}>—</span>
-            </div>
-          );
-        }
-        const late = slice.readyAt != null && slice.readyAt < now;
-        const name = getFilialShortName(filialId);
-        return (
-          <button
-            key={filialId}
-            type="button"
-            className={clsx(styles.fcell, isFocused && styles.fcellFocused)}
-            aria-label={`${name}: ${formatQty(slice.quantity)} ${group.unit}`}
-            aria-haspopup="dialog"
-            onClick={(event) => handlers.onCell(group, filialId, event.currentTarget)}
-          >
-            {slice.priority !== group.priority ? (
-              <span
-                className={clsx(styles.fchip, priorityBadgeClass(slice.priority))}
-                title={`${PRIORITY_VIEW[slice.priority].label} для цієї філії`}
-              >
-                {PRIORITY_VIEW[slice.priority].short}
-              </span>
-            ) : null}
-            <span className={styles.fqty}>
-              {formatQty(slice.quantity)}
-              <small>{group.unit}</small>
-            </span>
-            {slice.readyAt == null ? null : late ? (
-              <span className={styles.fsubLate}>прострочено {lateText(slice.readyAt, now)}</span>
-            ) : (
-              <span className={styles.fsub}>до {formatClock(slice.readyAt, now)}</span>
-            )}
-          </button>
-        );
-      })}
+      <div className={styles.tiles}>
+        {tiles.map((tile, index) =>
+          tile ? (
+            <FilialTile
+              key={filialIds[index]}
+              tile={tile}
+              unit={group.unit}
+              compact={compact}
+              focused={focused === filialIds[index]}
+              open={openFilial === filialIds[index]}
+              pulse={pulse}
+              busy={busy}
+              onOpen={(anchor) => handlers.onCell(group, filialIds[index], anchor)}
+            />
+          ) : (
+            <div key={filialIds[index]} className={styles.slot} aria-hidden="true" />
+          )
+        )}
+      </div>
 
-      <div className={clsx(styles.cell, styles.sigCell)}>
+      <div className={styles.sigCell}>
         <span className={styles.sigma}>
           {formatQty(group.total)}
           <small>{group.unit}</small>
@@ -335,7 +351,7 @@ function BatchRow({
         <span className={styles.sigLine}>{filialSpreadLabel(group.filialIds)}</span>
       </div>
 
-      <div className={clsx(styles.cell, styles.actCell)}>
+      <div className={styles.actCell}>
         <button
           type="button"
           className={inProgress ? styles.ctaDone : styles.cta}
@@ -357,5 +373,76 @@ function BatchRow({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * A busy tile stays focusable (`aria-disabled`, not `disabled`): «Почати лише …»
+ * closes its popover in the same commit that marks the row busy, and focus has
+ * to land back on the tile instead of falling to <body>.
+ */
+function FilialTile({
+  tile,
+  unit,
+  compact,
+  focused,
+  open,
+  pulse,
+  busy,
+  onOpen
+}: {
+  tile: BatchTile<KitchenTask>;
+  unit: string;
+  compact: boolean;
+  focused: boolean;
+  open: boolean;
+  pulse: boolean;
+  busy: boolean;
+  onOpen: (anchor: HTMLElement) => void;
+}) {
+  // A text chip does not fit a compact tile beside a decimal or «×N» quantity:
+  // there the filial's own priority is a rail, like the batch row's.
+  const chip = compact ? null : tile.priority;
+  const rail = compact ? tile.priority : null;
+  return (
+    <button
+      type="button"
+      className={clsx(
+        styles.tile,
+        rail && [styles.tileRail, TILE_RAIL[rail]],
+        focused && styles.tileFocused,
+        open && styles.tileOpen,
+        pulse && styles.tilePulse
+      )}
+      aria-label={tile.ariaLabel}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      aria-disabled={busy || undefined}
+      onClick={(event) => {
+        if (!busy) onOpen(event.currentTarget);
+      }}
+    >
+      <span className={styles.tileHead}>
+        <span className={styles.tileName}>{tile.name}</span>
+        <span className={styles.tileGo} aria-hidden="true">
+          ›
+        </span>
+      </span>
+      <span className={styles.tileLine}>
+        <span className={styles.tileQty}>
+          {formatQty(tile.slice.quantity)}
+          <small>{unit}</small>
+        </span>
+        {tile.orders > 1 ? <span className={styles.tileOrders}>×{tile.orders}</span> : null}
+        {chip ? (
+          <span className={clsx(styles.tilePriority, priorityBadgeClass(chip))}>{PRIORITY_VIEW[chip].short}</span>
+        ) : null}
+        {tile.due ? (
+          <span className={tile.due.late ? styles.tileLate : styles.tileDue}>
+            {compact ? tile.due.short : tile.due.text}
+          </span>
+        ) : null}
+      </span>
+    </button>
   );
 }
