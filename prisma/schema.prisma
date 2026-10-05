@@ -270,6 +270,9 @@ model Presentation {
   name          String   @unique
   filialIds     Int[]
   windowMinutes Int
+  // The kitchen filial that produces for the others: source of their Рубікон
+  // transfers. Null — every filial produces for itself.
+  productionFilialId Int?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }

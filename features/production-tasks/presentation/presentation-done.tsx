@@ -6,18 +6,18 @@ import { toast } from "sonner";
 import { getFilialName, getFilialShortName } from "@/domain/filials";
 import { apiClient } from "@/hooks/use-api";
 import { plural } from "@/lib/presentation-grouping";
-import { documentQuantity, documentTotals } from "@/lib/task-documenting";
+import {
+  documentFailureInfo,
+  documentQuantity,
+  documentTotals,
+  stopsDocumentRun,
+  transferToastMessage
+} from "@/lib/task-documenting";
 import styles from "../production-kitchen-board.module.css";
-import type { KitchenTask, Presentation } from "../types";
+import type { KitchenTask, Presentation, TransferDocumentResponse } from "../types";
 
 const TASK_FORMS: [string, string, string] = ["задача", "задачі", "задач"];
 const DOC_FORMS: [string, string, string] = ["документ", "документи", "документів"];
-
-interface DocumentResponse {
-  transfer_id: string | null;
-  documented: number;
-  skipped: number;
-}
 
 interface FilialSection {
   filialId: number;
@@ -140,46 +140,65 @@ export function PresentationDone({
     onDeselectedChange(next);
   };
 
+  const unbusy = (filialIds: number[]) =>
+    setBusy((current) => {
+      const next = new Set(current);
+      for (const id of filialIds) next.delete(id);
+      return next;
+    });
+
   // Sequential on purpose: one transfer per filial, and a failure of one
   // filial must not hide the documents that did go through.
   const documentSections = async (targets: FilialSection[]) => {
     setConfirmOpen(false);
     if (!targets.length) return;
     setBusy(new Set(targets.map((section) => section.filialId)));
-    const created: { filialId: number; transferId: string }[] = [];
+    const created: { filialId: number; transferIds: string[] }[] = [];
     const failures: string[] = [];
+    let delivered = true;
 
-    for (const section of targets) {
+    for (const [index, section] of targets.entries()) {
       try {
-        const response = await apiClient<DocumentResponse>("/api/production-tasks/document", {
+        const response = await apiClient<TransferDocumentResponse>("/api/production-tasks/document", {
           method: "POST",
-          body: JSON.stringify({ task_ids: section.selected.map((task) => task.id) })
+          body: JSON.stringify({
+            task_ids: section.selected.map((task) => task.id),
+            presentation_id: presentation.id
+          })
         });
-        if (response.transfer_id) {
-          created.push({ filialId: section.filialId, transferId: response.transfer_id });
+        if (response.transfer_ids.length) {
+          created.push({ filialId: section.filialId, transferIds: response.transfer_ids });
+          delivered &&= response.delivered;
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Не вдалося сформувати документ";
-        failures.push(`${getFilialShortName(section.filialId)}: ${message}`);
-        // A failed filial keeps its rows, so it is free to retry right away.
-        setBusy((current) => {
-          const next = new Set(current);
-          next.delete(section.filialId);
-          return next;
-        });
+        const failure = documentFailureInfo(error);
+        failures.push(`${getFilialShortName(section.filialId)}: ${failure.message}`);
+        if (failure.transferIds.length) {
+          // Earlier date groups went through: those rows leave with the refetch.
+          created.push({ filialId: section.filialId, transferIds: failure.transferIds });
+          delivered &&= failure.delivered;
+        } else {
+          // Nothing of this filial was documented, so it is free to retry right away.
+          unbusy([section.filialId]);
+        }
+        if (stopsDocumentRun(failure.code)) {
+          const rest = targets.slice(index + 1);
+          if (rest.length) {
+            failures.push(
+              `Не надсилали: ${rest.map((item) => getFilialShortName(item.filialId)).join(", ")} — спробуйте пізніше`
+            );
+            unbusy(rest.map((item) => item.filialId));
+          }
+          break;
+        }
       }
     }
 
-    if (created.length === 1 && targets.length === 1) {
-      toast.success(
-        `${getFilialShortName(created[0].filialId)}: трансфер ${created[0].transferId} сформовано і передано в Рубікон`
-      );
-    } else if (created.length) {
-      toast.success(
-        `Сформовано ${countLabel(created.length, DOC_FORMS)}: ${created
-          .map((item) => item.transferId)
-          .join(" · ")}`
-      );
+    const message = transferToastMessage(created.flatMap((item) => item.transferIds), delivered);
+    if (message && created.length === 1 && targets.length === 1) {
+      toast.success(`${getFilialShortName(created[0].filialId)}: ${message}`);
+    } else if (message) {
+      toast.success(message);
     } else if (!failures.length) {
       toast("Ці задачі вже оформили на іншому планшеті");
     }

@@ -52,6 +52,11 @@ export function formatFilialsLine(filialIds: number[], shortName: (filialId: num
   return `${filialCountLabel(filialIds.length)}: ${filialIds.map(shortName).join(" · ")}`;
 }
 
+/** «Виробник: Березнева»; null when every filial produces for itself. */
+export function formatProducerLine(productionFilialId: number | null, shortName: (filialId: number) => string) {
+  return productionFilialId === null ? null : `Виробник: ${shortName(productionFilialId)}`;
+}
+
 export function isDuplicateName(name: string, presentations: Presentation[], editingId: string | null) {
   const normalized = name.trim().toLocaleLowerCase("uk");
 

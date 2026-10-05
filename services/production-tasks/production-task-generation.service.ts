@@ -204,7 +204,10 @@ export const productionTaskGenerationService = {
             startedAt: null,
             completedAt: null,
             cancelReason: null,
-            batchId: null
+            batchId: null,
+            // An unanswered Рубікон claim must not carry over: the next
+            // completion is new production and needs a transfer of its own.
+            ...(existing!.documentedAt ? {} : { transferId: null })
           }
         });
       }

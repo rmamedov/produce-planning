@@ -144,7 +144,9 @@ export const productionTaskDocumentSchema = z.object({
   task_ids: z
     .array(z.string().min(1))
     .min(1, "Виберіть хоча б одну задачу")
-    .max(500, "Занадто багато задач за один документ")
+    .max(500, "Занадто багато задач за один документ"),
+  // Presentation mode: its production filial becomes the transfer source.
+  presentation_id: z.string().min(1).nullable().optional()
 });
 
 export const productionTaskCompleteSchema = z.object({
@@ -158,22 +160,34 @@ export const productionTaskCompleteSchema = z.object({
 
 const PRESENTATION_WINDOW_MESSAGE = "Час групування — від 0,5 до 24 год, крок 0,5";
 
-export const presentationSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(2, "Назва має містити щонайменше 2 символи")
-    .max(40, "Назва — не довше 40 символів"),
-  filial_ids: z
-    .array(z.coerce.number().int().positive("filial_id має бути додатним цілим числом"))
-    .min(2, "Оберіть щонайменше 2 філії")
-    .refine((ids) => new Set(ids).size === ids.length, "Філії не повинні повторюватися"),
-  window_hours: z.coerce
-    .number({ invalid_type_error: PRESENTATION_WINDOW_MESSAGE })
-    .min(0.5, PRESENTATION_WINDOW_MESSAGE)
-    .max(24, PRESENTATION_WINDOW_MESSAGE)
-    .refine((hours) => Number.isInteger(hours * 2), PRESENTATION_WINDOW_MESSAGE)
-});
+export const presentationSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(2, "Назва має містити щонайменше 2 символи")
+      .max(40, "Назва — не довше 40 символів"),
+    filial_ids: z
+      .array(z.coerce.number().int().positive("filial_id має бути додатним цілим числом"))
+      .min(2, "Оберіть щонайменше 2 філії")
+      .refine((ids) => new Set(ids).size === ids.length, "Філії не повинні повторюватися"),
+    window_hours: z.coerce
+      .number({ invalid_type_error: PRESENTATION_WINDOW_MESSAGE })
+      .min(0.5, PRESENTATION_WINDOW_MESSAGE)
+      .max(24, PRESENTATION_WINDOW_MESSAGE)
+      .refine((hours) => Number.isInteger(hours * 2), PRESENTATION_WINDOW_MESSAGE),
+    production_filial_id: z
+      .number()
+      .int()
+      .positive("production_filial_id має бути додатним цілим числом")
+      .nullable()
+      .optional()
+  })
+  .refine(
+    (presentation) =>
+      presentation.production_filial_id == null || presentation.filial_ids.includes(presentation.production_filial_id),
+    { message: "Філія-виробник має входити до представлення", path: ["production_filial_id"] }
+  );
 
 export const taskIdsSchema = z.object({
   task_ids: z

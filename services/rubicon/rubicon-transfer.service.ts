@@ -1,75 +1,108 @@
-import type { ProductionTask } from "@prisma/client";
-
-import { generateTransferId } from "@/lib/task-documenting";
-
-// TODO(рубікон): справжній API буде надано пізніше — тоді сюди підставляється
-// URL + авторизація, а форма payload вже зафіксована нижче.
-const RUBICON_API_URL = process.env.RUBICON_API_URL ?? null;
+import {
+  RubiconError,
+  createRubiconClient,
+  resolveRubiconMode,
+  rubiconConfigError,
+  type RubiconErrorKind
+} from "@/services/rubicon/rubicon-client";
+import type { TransferGroup, TransferPayload } from "@/services/rubicon/rubicon-payload";
 
 // TODO(аналітика): сюди ж додасться передача даних про виготовлення
 // аналітикам, коли буде відомий канал.
 
-export interface TransferItem {
-  lager_id: number;
-  lager_name: string | null;
-  unit: string | null;
-  quantity: number; // produced quantity reported by the operator
-  ordered_quantity: number;
-  completed_at: string | null;
-}
-
 export interface TransferResult {
-  transferId: string;
-  itemCount: number;
-  delivered: boolean; // false while the Рубікон API is not wired yet
+  orderId: string;
+  delivered: boolean; // false in stub mode: the payload was only logged
 }
 
-/** The payload the real API will receive — kept stable so wiring the URL later is a no-op for callers. */
-export function buildTransferPayload(transferId: string, filialId: number, tasks: ProductionTask[]) {
-  return {
-    transfer_id: transferId,
-    filial_id: filialId,
-    created_at: new Date().toISOString(),
-    items: tasks.map<TransferItem>((task) => ({
-      lager_id: task.lagerId,
-      lager_name: task.lagerName,
-      unit: task.lagerUnit,
-      quantity: task.producedQty ?? task.quantity,
-      ordered_quantity: task.quantity,
-      completed_at: task.completedAt?.toISOString() ?? null
-    }))
-  };
-}
+const client = createRubiconClient();
 
 export const rubiconTransferService = {
-  /**
-   * Creates a transfer document in Рубікон for the given completed tasks.
-   * Async by contract: while the API is not provided, the request is a stub
-   * that resolves after building the payload; the caller flow (mark tasks
-   * documented, notify boards) is already final.
-   */
-  async createTransfer(filialId: number, tasks: ProductionTask[]): Promise<TransferResult> {
-    const transferId = generateTransferId(new Date());
-    const payload = buildTransferPayload(transferId, filialId, tasks);
-
-    let delivered = false;
-    if (RUBICON_API_URL) {
-      const response = await fetch(RUBICON_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(10_000)
-      });
-      if (!response.ok) {
-        throw new Error(`Рубікон відхилив трансфер: HTTP ${response.status}`);
-      }
-      delivered = true;
-    } else {
-      // Стаб: імітуємо асинхронний виклик, логуємо payload для звірки.
-      await Promise.resolve();
+  /** Creates one production transfer in Рубікон; throws RubiconError with a user-facing message. */
+  async sendTransfer(payload: TransferPayload): Promise<TransferResult> {
+    const resolved = resolveRubiconMode(process.env);
+    if (resolved.mode === "misconfigured") {
+      throw rubiconConfigError(resolved.missing);
+    }
+    if (resolved.mode === "stub") {
       console.info("[rubicon:stub] transfer payload", JSON.stringify(payload));
+      return { orderId: payload.orderId, delivered: false };
     }
 
-    return { transferId, itemCount: tasks.length, delivered };
+    await client.createTransfer(resolved.config, payload);
+    return { orderId: payload.orderId, delivered: true };
   }
 };
+
+export type DocumentFailureCode = RubiconErrorKind | "conflict";
+
+export interface DocumentFailure {
+  code: DocumentFailureCode;
+  message: string;
+}
+
+export const DOCUMENT_CONFLICT_MESSAGE =
+  "Частину цих задач саме оформлює інший планшет — оновіть список і спробуйте ще раз";
+
+export interface DocumentOutcome {
+  transferIds: string[];
+  /** Tasks of the groups Рубікон accepted. */
+  documentedTaskIds: string[];
+  documented: number;
+  delivered: boolean;
+  error: DocumentFailure | null;
+}
+
+export interface DocumentSteps {
+  /** Puts the group's orderId on its free tasks; false when another request holds any of them. */
+  claim: (group: TransferGroup) => Promise<boolean>;
+  send: (payload: TransferPayload) => Promise<TransferResult>;
+  /** Returns how many of the group's tasks were still undocumented. */
+  markDocumented: (group: TransferGroup) => Promise<number>;
+  /** Frees the group's tasks: Рубікон definitely did not create the transfer. */
+  release: (group: TransferGroup) => Promise<void>;
+}
+
+/**
+ * Sends the groups in order. A fresh group is claimed (its orderId stored on
+ * the tasks) before the call, so a retry after an unanswered call resends the
+ * same orderId. Each accepted group is marked right away; the first failure
+ * stops the run and earlier groups stay documented. Only a definite rejection
+ * frees the claim — after a timeout, network error or 5xx it stays.
+ */
+export async function documentTransferGroups(
+  groups: TransferGroup[],
+  { claim, send, markDocumented, release }: DocumentSteps
+): Promise<DocumentOutcome> {
+  const outcome: DocumentOutcome = {
+    transferIds: [],
+    documentedTaskIds: [],
+    documented: 0,
+    delivered: true,
+    error: null
+  };
+
+  for (const group of groups) {
+    if (!group.resumed && !(await claim(group))) {
+      outcome.error = { code: "conflict", message: DOCUMENT_CONFLICT_MESSAGE };
+      break;
+    }
+
+    let result: TransferResult;
+    try {
+      result = await send(group.payload);
+    } catch (error) {
+      if (!(error instanceof RubiconError)) throw error;
+      if (!error.maybeCreated) await release(group);
+      outcome.error = { code: error.kind, message: error.message };
+      break;
+    }
+    outcome.documented += await markDocumented(group);
+    outcome.transferIds.push(result.orderId);
+    outcome.documentedTaskIds.push(...group.taskIds);
+    outcome.delivered &&= result.delivered;
+  }
+
+  if (!outcome.transferIds.length) outcome.delivered = false;
+  return outcome;
+}

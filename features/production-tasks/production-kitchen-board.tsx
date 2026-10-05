@@ -34,7 +34,13 @@ import {
   quantityHint,
   stepValue
 } from "@/lib/produced-quantity-input";
-import { documentQuantity, documentTotals, pruneDeselected } from "@/lib/task-documenting";
+import {
+  documentFailureInfo,
+  documentQuantity,
+  documentTotals,
+  pruneDeselected,
+  transferToastMessage
+} from "@/lib/task-documenting";
 import {
   BAKERY_TYPES,
   ecomOrdersLabel,
@@ -48,7 +54,7 @@ import { PresentationBoard } from "./presentation/presentation-board";
 import { PresentationDone } from "./presentation/presentation-done";
 import { ScopePicker } from "./presentation/scope-picker";
 import styles from "./production-kitchen-board.module.css";
-import type { KitchenTask, KitchenTasksResponse, PresentationsResponse } from "./types";
+import type { KitchenTask, KitchenTasksResponse, PresentationsResponse, TransferDocumentResponse } from "./types";
 
 type PrioKey = "critical" | "high" | "medium";
 
@@ -832,15 +838,27 @@ export function ProductionKitchenBoard() {
   // Default selection is "everything checked": we store the DESELECTED ids,
   // so tasks completed later arrive checked automatically.
   const [deselected, setDeselected] = useState<Set<string>>(new Set());
-  const documentMutation = useApiMutation<{ transfer_id: string | null }, string[]>({
+  const documentMutation = useApiMutation<TransferDocumentResponse, string[]>({
     mutationFn: (taskIds) =>
       apiClient("/api/production-tasks/document", {
         method: "POST",
         body: JSON.stringify({ task_ids: taskIds })
       }),
-    successMessage: "Трансфер сформовано і передано в Рубікон",
     invalidateKeys: [["production-tasks"]],
-    onSuccess: () => setDeselected(new Set())
+    onSuccess: (data) => {
+      setDeselected(new Set());
+      const message = transferToastMessage(data.transfer_ids, data.delivered);
+      if (message) toast.success(message);
+      else toast("Ці задачі вже оформили на іншому планшеті");
+    },
+    // A failed date group leaves the earlier ones documented: report their
+    // transfers next to the error and drop them from the tab.
+    onError: (error) => {
+      const { transferIds, delivered } = documentFailureInfo(error);
+      const message = transferToastMessage(transferIds, delivered);
+      if (message) toast.success(message);
+      return queryClient.invalidateQueries({ queryKey: ["production-tasks"] });
+    }
   });
 
   // Default the scope once tasks are known: 3361 when it has tasks,

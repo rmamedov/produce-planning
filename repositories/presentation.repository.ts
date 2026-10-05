@@ -13,9 +13,10 @@ export interface PresentationInput {
   name: string;
   filial_ids: number[];
   window_hours: number;
+  production_filial_id?: number | null;
 }
 
-export type PresentationData = Pick<PresentationRow, "name" | "filialIds" | "windowMinutes">;
+export type PresentationData = Pick<PresentationRow, "name" | "filialIds" | "windowMinutes" | "productionFilialId">;
 
 const byNumber = (a: number, b: number) => a - b;
 
@@ -23,19 +24,21 @@ export function toPresentationData(input: PresentationInput): PresentationData {
   return {
     name: input.name.trim(),
     filialIds: Array.from(new Set(input.filial_ids)).sort(byNumber),
-    windowMinutes: Math.round(input.window_hours * 60)
+    windowMinutes: Math.round(input.window_hours * 60),
+    productionFilialId: input.production_filial_id ?? null
   };
 }
 
 export function toPresentationDto(
-  row: Pick<PresentationRow, "id" | "name" | "filialIds" | "windowMinutes">
+  row: Pick<PresentationRow, "id" | "name" | "filialIds" | "windowMinutes" | "productionFilialId">
 ): Presentation {
   return {
     id: row.id,
     name: row.name,
     filial_ids: [...row.filialIds].sort(byNumber),
     window_minutes: row.windowMinutes,
-    window_hours: row.windowMinutes / 60
+    window_hours: row.windowMinutes / 60,
+    production_filial_id: row.productionFilialId
   };
 }
 
@@ -89,6 +92,11 @@ export const presentationRepository = {
   async list(): Promise<Presentation[]> {
     const rows = await prisma.presentation.findMany();
     return rows.map(toPresentationDto).sort(comparePresentationNames);
+  },
+
+  async findById(id: string): Promise<Presentation | null> {
+    const row = await prisma.presentation.findUnique({ where: { id } });
+    return row ? toPresentationDto(row) : null;
   },
 
   async create(data: PresentationData): Promise<Presentation> {

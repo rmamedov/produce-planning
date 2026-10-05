@@ -10,6 +10,8 @@ import {
 } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+import { ApiError } from "@/lib/api-error";
+
 type FetchConfig = RequestInit & {
   suppressToast?: boolean;
 };
@@ -23,8 +25,9 @@ export async function apiClient<T>(input: string, init?: FetchConfig): Promise<T
   });
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => ({}))) as { message?: string };
-    throw new Error(payload.message ?? "Request failed");
+    const parsed: unknown = await response.json().catch(() => null);
+    const body = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+    throw new ApiError(typeof body.message === "string" ? body.message : "Request failed", response.status, body);
   }
 
   if (response.status === 204) {

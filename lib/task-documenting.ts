@@ -1,6 +1,9 @@
 // Pure logic of the «Виконані» tab and the transfer document. Unit-tested in
 // tests/task-documenting.test.ts.
 
+import { ApiError } from "@/lib/api-error";
+import { plural } from "@/lib/presentation-grouping";
+
 export interface DocumentableTask {
   status: string;
   documented_at?: string | null;
@@ -50,12 +53,42 @@ export function pruneDeselected(deselected: Set<string>, presentIds: string[]): 
   return new Set([...deselected].filter((id) => present.has(id)));
 }
 
-/** Transfer id, readable in logs and on the task: RBK-YYYYMMDD-XXXXXX. */
-export function generateTransferId(now: Date, random: () => number = Math.random): string {
-  const date = now.toISOString().slice(0, 10).replace(/-/g, "");
-  const suffix = Math.floor(random() * 36 ** 6)
-    .toString(36)
-    .toUpperCase()
-    .padStart(6, "0");
-  return `RBK-${date}-${suffix}`;
+const TRANSFER_FORMS: [string, string, string] = ["трансфер", "трансфери", "трансферів"];
+
+/** Success toast of «Оформити документ»; null when nothing was documented. */
+export function transferToastMessage(transferIds: string[], delivered: boolean): string | null {
+  if (!transferIds.length) return null;
+  const text =
+    transferIds.length === 1
+      ? `Трансфер сформовано в Рубіконі · №${transferIds[0].slice(0, 8)}`
+      : `Сформовано ${transferIds.length} ${plural(transferIds.length, TRANSFER_FORMS)} у Рубіконі`;
+  return delivered ? text : `${text} (тестовий режим, без відправки)`;
+}
+
+export interface DocumentFailureInfo {
+  message: string;
+  /** TransferDocumentErrorCode, or null for a failure without one (offline, 500). */
+  code: string | null;
+  /** Transfers created before the failure: their tasks did leave the tab. */
+  transferIds: string[];
+  delivered: boolean;
+}
+
+/** Reads a failed «Оформити документ» call, keeping what did go through. */
+export function documentFailureInfo(error: unknown): DocumentFailureInfo {
+  const body = error instanceof ApiError ? error.body : {};
+  const transferIds = Array.isArray(body.transfer_ids)
+    ? body.transfer_ids.filter((id): id is string => typeof id === "string")
+    : [];
+  return {
+    message: error instanceof Error ? error.message : "Не вдалося сформувати документ",
+    code: typeof body.code === "string" ? body.code : null,
+    transferIds,
+    delivered: body.delivered === true
+  };
+}
+
+/** Рубікон-wide failures: the next filial of «Оформити всі» would only fail the same way. */
+export function stopsDocumentRun(code: string | null): boolean {
+  return code === "unreachable" || code === "auth" || code === "config";
 }

@@ -10,6 +10,7 @@ import {
   formatFilialsLine,
   formatHours,
   formatMinuteOfDay,
+  formatProducerLine,
   isDuplicateName,
   isValidWindowHours,
   parseHoursInput,
@@ -22,7 +23,8 @@ const presentation = (id: string, name: string, filial_ids: number[], window_hou
   name,
   filial_ids,
   window_hours,
-  window_minutes: window_hours * 60
+  window_minutes: window_hours * 60,
+  production_filial_id: null
 });
 
 const SHORT: Record<number, string> = { 3361: "Березнева", 2048: "Січових Стрільців", 2043: "Дніпровська Наб. 33" };
@@ -105,6 +107,11 @@ describe("labels", () => {
     expect(formatFilialsLine([3361, 2048, 2043], shortName)).toBe(
       "3 філії: Березнева · Січових Стрільців · Дніпровська Наб. 33"
     );
+  });
+
+  it("names the production filial only when one is set", () => {
+    expect(formatProducerLine(3361, shortName)).toBe("Виробник: Березнева");
+    expect(formatProducerLine(null, shortName)).toBeNull();
   });
 });
 

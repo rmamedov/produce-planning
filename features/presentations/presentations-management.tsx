@@ -18,6 +18,7 @@ import { FormError } from "@/components/ui/form-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/ui/loading-state";
+import { Select } from "@/components/ui/select";
 import { getFilialName, getFilialShortName } from "@/domain/filials";
 import {
   DEFAULT_WINDOW_HOURS,
@@ -31,6 +32,7 @@ import {
   formatFilialsLine,
   formatHours,
   formatMinuteOfDay,
+  formatProducerLine,
   isDuplicateName,
   isValidWindowHours,
   parseHoursInput,
@@ -46,13 +48,16 @@ interface PresentationFormValues {
   name: string;
   filial_ids: number[];
   window_hours: string;
+  /** "" — every filial produces for itself. */
+  production_filial_id: string;
 }
 
 const toPayload = (values: PresentationFormValues): PresentationPayload => ({
   name: values.name.trim(),
   filial_ids: [...values.filial_ids].sort((a, b) => a - b),
   // Unparseable input becomes 0 so the schema reports its range message rather than a type error.
-  window_hours: parseHoursInput(values.window_hours) ?? 0
+  window_hours: parseHoursInput(values.window_hours) ?? 0,
+  production_filial_id: values.production_filial_id ? Number(values.production_filial_id) : null
 });
 
 const presentationFormSchema = z.preprocess(
@@ -63,7 +68,8 @@ const presentationFormSchema = z.preprocess(
 const createDefaultValues = (): PresentationFormValues => ({
   name: "",
   filial_ids: [],
-  window_hours: formatHours(DEFAULT_WINDOW_HOURS)
+  window_hours: formatHours(DEFAULT_WINDOW_HOURS),
+  production_filial_id: ""
 });
 
 const EXAMPLE_COLORS = ["#1C7356", "#F06124", "#2358D1", "#9333EA", "#CA8A04", "#0E7490", "#DB2777", "#4B5563"];
@@ -91,7 +97,9 @@ export function PresentationsManagement() {
         ? {
             name: selectedPresentation.name,
             filial_ids: selectedPresentation.filial_ids,
-            window_hours: formatHours(selectedPresentation.window_hours)
+            window_hours: formatHours(selectedPresentation.window_hours),
+            production_filial_id:
+              selectedPresentation.production_filial_id === null ? "" : String(selectedPresentation.production_filial_id)
           }
         : createDefaultValues()
     );
@@ -139,6 +147,7 @@ export function PresentationsManagement() {
 
   const selectedIds = form.watch("filial_ids");
   const windowRaw = form.watch("window_hours");
+  const productionFilialRaw = form.watch("production_filial_id");
   const windowHours = parseHoursInput(windowRaw);
   const editingId = selectedPresentation?.id ?? null;
   const isSubmitted = form.formState.isSubmitted;
@@ -160,12 +169,20 @@ export function PresentationsManagement() {
   const setWindow = (value: string) =>
     form.setValue("window_hours", value, { shouldDirty: true, shouldValidate: isSubmitted });
 
-  const toggleFilial = (filialId: number) =>
+  const setProductionFilial = (value: string) =>
+    form.setValue("production_filial_id", value, { shouldDirty: true, shouldValidate: isSubmitted });
+
+  const toggleFilial = (filialId: number) => {
+    const removing = selectedIds.includes(filialId);
     form.setValue(
       "filial_ids",
-      selectedIds.includes(filialId) ? selectedIds.filter((id) => id !== filialId) : [...selectedIds, filialId],
+      removing ? selectedIds.filter((id) => id !== filialId) : [...selectedIds, filialId],
       { shouldDirty: true, shouldValidate: isSubmitted }
     );
+    if (removing && productionFilialRaw === String(filialId)) {
+      setProductionFilial("");
+    }
+  };
 
   const cancelEdit = () => {
     setSelectedPresentation(null);
@@ -176,14 +193,19 @@ export function PresentationsManagement() {
     {
       id: "name",
       header: "Назва і філії",
-      cell: ({ row }) => (
-        <div className="space-y-1">
-          <p className="font-medium">{row.original.name}</p>
-          <p className="text-[13px] leading-5 text-muted-foreground">
-            {formatFilialsLine(row.original.filial_ids, shortName)}
-          </p>
-        </div>
-      )
+      cell: ({ row }) => {
+        const producer = formatProducerLine(row.original.production_filial_id, shortName);
+
+        return (
+          <div className="space-y-1">
+            <p className="font-medium">{row.original.name}</p>
+            <p className="text-[13px] leading-5 text-muted-foreground">
+              {formatFilialsLine(row.original.filial_ids, shortName)}
+            </p>
+            {producer ? <p className="text-[13px] leading-5 text-muted-foreground">{producer}</p> : null}
+          </div>
+        );
+      }
     },
     {
       id: "window",
@@ -335,6 +357,28 @@ export function PresentationsManagement() {
                   {warning}
                 </p>
               ) : null}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="presentation-production-filial">Філія-виробник (звідки трансфер)</Label>
+              <Select
+                id="presentation-production-filial"
+                value={productionFilialRaw}
+                onChange={(event) => setProductionFilial(event.target.value)}
+              >
+                <option value="">Кожна філія виробляє сама</option>
+                {[...selectedIds]
+                  .sort((a, b) => a - b)
+                  .map((filialId) => (
+                    <option key={filialId} value={String(filialId)}>
+                      {shortName(filialId)} · {filialId}
+                    </option>
+                  ))}
+              </Select>
+              <FormError message={form.formState.errors.production_filial_id?.message} />
+              <p className="text-[13px] leading-5 text-muted-foreground">
+                «Оформити документ» на вкладці «Виконані» створить у Рубіконі трансфер із цієї філії до філії-замовника.
+              </p>
             </div>
 
             <div className="space-y-3">

@@ -83,6 +83,25 @@ describe("presentationSchema", () => {
     }
   });
 
+  it("accepts no production filial, null, or one of the selected filials", () => {
+    expect(issues(presentationSchema, validPresentation)).toEqual([]);
+    expect(issues(presentationSchema, { ...validPresentation, production_filial_id: null })).toEqual([]);
+    expect(presentationSchema.parse({ ...validPresentation, production_filial_id: 2048 }).production_filial_id).toBe(
+      2048
+    );
+  });
+
+  it("rejects a production filial outside the presentation", () => {
+    const result = presentationSchema.safeParse({ ...validPresentation, production_filial_id: 2043 });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual([
+      expect.objectContaining({
+        message: "Філія-виробник має входити до представлення",
+        path: ["production_filial_id"]
+      })
+    ]);
+  });
+
   it("explains a missing or non-numeric window with the same message", () => {
     expect(issues(presentationSchema, { ...validPresentation, window_hours: "abc" })).toEqual([WINDOW_MESSAGE]);
     expect(issues(presentationSchema, { name: "Центр", filial_ids: [1, 2] })).toEqual([WINDOW_MESSAGE]);
@@ -179,16 +198,32 @@ describe("presentation mapping", () => {
     expect(toPresentationData({ name: " Центр ", filial_ids: [3361, 2043, 2048], window_hours: 7.5 })).toEqual({
       name: "Центр",
       filialIds: [2043, 2048, 3361],
-      windowMinutes: 450
+      windowMinutes: 450,
+      productionFilialId: null
     });
     expect(toPresentationData({ name: "Центр", filial_ids: [1, 2], window_hours: 0.5 }).windowMinutes).toBe(30);
   });
 
+  it("stores the production filial, clearing it when absent", () => {
+    const input = { name: "Центр", filial_ids: [3361, 2048], window_hours: 5 };
+    expect(toPresentationData({ ...input, production_filial_id: 3361 }).productionFilialId).toBe(3361);
+    expect(toPresentationData({ ...input, production_filial_id: null }).productionFilialId).toBeNull();
+  });
+
   it("returns snake_case with hours derived from minutes", () => {
     expect(
-      toPresentationDto({ id: "p1", name: "Центр", filialIds: [3361, 2048], windowMinutes: 300 })
-    ).toEqual({ id: "p1", name: "Центр", filial_ids: [2048, 3361], window_minutes: 300, window_hours: 5 });
-    expect(toPresentationDto({ id: "p2", name: "Х", filialIds: [], windowMinutes: 90 }).window_hours).toBe(1.5);
+      toPresentationDto({ id: "p1", name: "Центр", filialIds: [3361, 2048], windowMinutes: 300, productionFilialId: 3361 })
+    ).toEqual({
+      id: "p1",
+      name: "Центр",
+      filial_ids: [2048, 3361],
+      window_minutes: 300,
+      window_hours: 5,
+      production_filial_id: 3361
+    });
+    const dto = toPresentationDto({ id: "p2", name: "Х", filialIds: [], windowMinutes: 90, productionFilialId: null });
+    expect(dto.window_hours).toBe(1.5);
+    expect(dto.production_filial_id).toBeNull();
   });
 
   it("sorts names by the Ukrainian alphabet", () => {

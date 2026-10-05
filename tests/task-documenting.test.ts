@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import { productionTaskDocumentSchema } from "@/api/schemas";
+import { ApiError } from "@/lib/api-error";
 import {
+  documentFailureInfo,
   documentQuantity,
   documentTotals,
-  generateTransferId,
   isDocumentable,
-  pruneDeselected
+  pruneDeselected,
+  stopsDocumentRun,
+  transferToastMessage
 } from "@/lib/task-documenting";
 
 describe("isDocumentable", () => {
@@ -64,16 +67,26 @@ describe("pruneDeselected", () => {
   });
 });
 
-describe("generateTransferId", () => {
-  it("is readable and unique-ish: RBK-YYYYMMDD-XXXXXX", () => {
-    const id = generateTransferId(new Date("2026-09-28T10:00:00Z"), () => 0.5);
-    expect(id).toMatch(/^RBK-20260928-[0-9A-Z]{6}$/);
+describe("transferToastMessage", () => {
+  const id = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
+
+  it("names a single transfer by the first 8 characters of its orderId", () => {
+    expect(transferToastMessage([id], true)).toBe("Трансфер сформовано в Рубіконі · №3fa85f64");
   });
 
-  it("different randomness gives different suffixes", () => {
-    const a = generateTransferId(new Date(), () => 0.1);
-    const b = generateTransferId(new Date(), () => 0.9);
-    expect(a).not.toBe(b);
+  it("counts several transfers with the right plural", () => {
+    expect(transferToastMessage([id, id], true)).toBe("Сформовано 2 трансфери у Рубіконі");
+    expect(transferToastMessage(Array(5).fill(id), true)).toBe("Сформовано 5 трансферів у Рубіконі");
+  });
+
+  it("flags stub mode", () => {
+    expect(transferToastMessage([id], false)).toBe(
+      "Трансфер сформовано в Рубіконі · №3fa85f64 (тестовий режим, без відправки)"
+    );
+  });
+
+  it("is null when nothing was documented", () => {
+    expect(transferToastMessage([], true)).toBeNull();
   });
 });
 
@@ -84,5 +97,53 @@ describe("document endpoint schema", () => {
     expect(
       productionTaskDocumentSchema.safeParse({ task_ids: Array(501).fill("x") }).success
     ).toBe(false);
+  });
+
+  it("takes an optional presentation id", () => {
+    expect(productionTaskDocumentSchema.parse({ task_ids: ["t1"], presentation_id: "p1" }).presentation_id).toBe("p1");
+    expect(productionTaskDocumentSchema.parse({ task_ids: ["t1"], presentation_id: null }).presentation_id).toBeNull();
+    expect(productionTaskDocumentSchema.safeParse({ task_ids: ["t1"], presentation_id: "" }).success).toBe(false);
+  });
+});
+
+describe("documentFailureInfo", () => {
+  it("keeps the transfers created before a later date group failed", () => {
+    const error = new ApiError("Рубікон недоступний", 502, {
+      message: "Рубікон недоступний",
+      code: "unreachable",
+      transfer_ids: ["3fa85f64-5717-4562-b3fc-2c963f66afa6"],
+      documented: 3,
+      delivered: true
+    });
+    expect(documentFailureInfo(error)).toEqual({
+      message: "Рубікон недоступний",
+      code: "unreachable",
+      transferIds: ["3fa85f64-5717-4562-b3fc-2c963f66afa6"],
+      delivered: true
+    });
+  });
+
+  it("reads an error without a body (offline, older server) as nothing created", () => {
+    expect(documentFailureInfo(new TypeError("Failed to fetch"))).toEqual({
+      message: "Failed to fetch",
+      code: null,
+      transferIds: [],
+      delivered: false
+    });
+    expect(documentFailureInfo(new ApiError("x", 500, { transfer_ids: "nope", code: 7 }))).toMatchObject({
+      code: null,
+      transferIds: []
+    });
+    expect(documentFailureInfo("boom").message).toBe("Не вдалося сформувати документ");
+  });
+});
+
+describe("stopsDocumentRun", () => {
+  it("stops «Оформити всі» on failures every filial would hit", () => {
+    expect(["unreachable", "auth", "config"].every(stopsDocumentRun)).toBe(true);
+  });
+
+  it("goes on after a failure of one document", () => {
+    expect(["rejected", "conflict", null].some(stopsDocumentRun)).toBe(false);
   });
 });
