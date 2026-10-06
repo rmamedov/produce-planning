@@ -152,6 +152,8 @@ export interface RubiconClientDeps {
 export interface RubiconResponse {
   status: number;
   body: string;
+  /** Response headers, lower-cased — Рубікон answers 202 with an empty body, so these are the only trace. */
+  headers: Record<string, string>;
 }
 
 export function createRubiconClient({
@@ -177,7 +179,11 @@ export function createRubiconClient({
     } catch (error) {
       throw unreachableError(url, error);
     }
-    return { status: response.status, body: await response.text().catch(() => "") };
+    return {
+      status: response.status,
+      body: await response.text().catch(() => ""),
+      headers: Object.fromEntries(response.headers)
+    };
   }
 
   async function requestToken(config: RubiconConfig): Promise<{ token: string; expiresIn: number }> {
@@ -261,6 +267,9 @@ export function createRubiconClient({
      * The final error carries `maybeCreated` when any POST was ambiguous.
      */
     async createTransfer(config: RubiconConfig, payload: TransferPayload): Promise<RubiconResponse> {
+      // The exact body goes to the log: the payload holds no secrets, and it
+      // is what the Рубікон team asks for when a transfer is questioned.
+      console.info(`[rubicon] transfer ${payload.orderId} → POST ${config.apiUrl} ${JSON.stringify(payload)}`);
       let refreshed = false;
       let maybeCreated = false;
       const post = async (token: string) => {
@@ -285,7 +294,7 @@ export function createRubiconClient({
             response = await post(token);
           }
 
-          const log = `[rubicon] transfer ${payload.orderId} → HTTP ${response.status} ${logBody(response.body)}`;
+          const log = `[rubicon] transfer ${payload.orderId} ← HTTP ${response.status} ${logBody(response.body)} headers=${JSON.stringify(response.headers)}`;
           if (response.status >= 200 && response.status < 300) {
             console.info(log);
             return response;

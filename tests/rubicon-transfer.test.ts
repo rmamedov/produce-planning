@@ -55,7 +55,7 @@ const PAYLOAD: TransferPayload = {
 
 const UUID_V5 = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-type Reply = { status: number; body?: unknown } | Error;
+type Reply = { status: number; body?: unknown; headers?: Record<string, string> } | Error;
 
 /** Global fetch stub: identity and API replies are scripted separately; unscripted calls succeed. */
 function stubFetch(replies: { token?: Reply[]; api?: Reply[] } = {}) {
@@ -75,7 +75,7 @@ function stubFetch(replies: { token?: Reply[]; api?: Reply[] } = {}) {
         : { status: 200, body: { accepted: true } });
     if (reply instanceof Error) throw reply;
     const body = typeof reply.body === "string" ? reply.body : JSON.stringify(reply.body ?? {});
-    return new Response(body, { status: reply.status });
+    return new Response(body, { status: reply.status, headers: reply.headers });
   });
   vi.stubGlobal("fetch", fetchMock);
 
@@ -260,7 +260,7 @@ describe("Рубікон token", () => {
 describe("Рубікон transfer request", () => {
   it("POSTs the payload as JSON with the Bearer token and the User-Agent", async () => {
     const { client, fetchMock, apiCalls } = setup();
-    expect(await client.createTransfer(CONFIG, PAYLOAD)).toEqual({ status: 200, body: '{"accepted":true}' });
+    expect(await client.createTransfer(CONFIG, PAYLOAD)).toMatchObject({ status: 200, body: '{"accepted":true}' });
 
     expect(fetchMock.mock.calls[1][0]).toBe(CONFIG.apiUrl);
     const [call] = apiCalls;
@@ -274,6 +274,17 @@ describe("Рубікон transfer request", () => {
   it("accepts any 2xx", async () => {
     const { client } = setup({ api: [{ status: 202, body: "" }] });
     expect((await client.createTransfer(CONFIG, PAYLOAD)).status).toBe(202);
+  });
+
+  it("logs the exact request body and the response headers", async () => {
+    const { client } = setup({ api: [{ status: 202, body: "", headers: { "x-request-id": "req-42" } }] });
+    const response = await client.createTransfer(CONFIG, PAYLOAD);
+    expect(response.headers["x-request-id"]).toBe("req-42");
+
+    const lines = logs.map((args) => args.join(" "));
+    expect(lines).toContain(`[rubicon] transfer ${PAYLOAD.orderId} → POST ${CONFIG.apiUrl} ${JSON.stringify(PAYLOAD)}`);
+    const reply = lines.find((line) => line.startsWith(`[rubicon] transfer ${PAYLOAD.orderId} ← HTTP 202`));
+    expect(reply).toContain('"x-request-id":"req-42"');
   });
 
   it("on 401 refreshes the token once and retries once", async () => {
